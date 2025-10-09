@@ -104,12 +104,9 @@ public class PickerVideoFragment extends Fragment {
                 if (hrs == 0) {
                     duration_formatted = String.valueOf(min).concat(":".concat(String.format(Locale.UK, "%02d", sec)));
                 } else {
-                    duration_formatted =
-                        String
-                            .valueOf(hrs)
-                            .concat(
-                                ":".concat(String.format(Locale.UK, "%02d", min).concat(":".concat(String.format(Locale.UK, "%02d", sec))))
-                            );
+                    duration_formatted = String.valueOf(hrs).concat(
+                        ":".concat(String.format(Locale.UK, "%02d", min).concat(":".concat(String.format(Locale.UK, "%02d", sec))))
+                    );
                 }
                 Log.v(TAG, "**** video " + id + " " + title + " " + duration_formatted + " ****");
                 videosList.add(new ModelVideo(id, data, title, duration_formatted));

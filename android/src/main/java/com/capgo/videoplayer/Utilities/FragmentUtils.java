@@ -23,7 +23,7 @@ public class FragmentUtils {
         fragmentTransaction.commit(); // save the changes
     }
 
-    public void removeFragment(/*VideoPlayerFragmentFullscreenExoPlayer*/Fragment vpFragment) {
+    public void removeFragment(/*VideoPlayerFragmentFullscreenExoPlayer*/ Fragment vpFragment) {
         FragmentManager fm = bridge.getActivity().getSupportFragmentManager();
         FragmentTransaction fragmentTransaction = fm.beginTransaction();
         fragmentTransaction.remove(vpFragment);

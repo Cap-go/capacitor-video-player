@@ -12,6 +12,11 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 import androidx.fragment.app.Fragment;
+import com.capgo.videoplayer.Notifications.MyRunnable;
+import com.capgo.videoplayer.Notifications.NotificationCenter;
+import com.capgo.videoplayer.PickerVideo.PickerVideoFragment;
+import com.capgo.videoplayer.Utilities.FilesUtils;
+import com.capgo.videoplayer.Utilities.FragmentUtils;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
@@ -21,21 +26,14 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
-import com.capgo.videoplayer.Notifications.MyRunnable;
-import com.capgo.videoplayer.Notifications.NotificationCenter;
-import com.capgo.videoplayer.PickerVideo.PickerVideoFragment;
-import com.capgo.videoplayer.Utilities.FilesUtils;
-import com.capgo.videoplayer.Utilities.FragmentUtils;
 import java.util.HashMap;
 import java.util.Map;
 
 @CapacitorPlugin(
     name = "VideoPlayer",
     permissions = {
-      @Permission(alias = "mediaVideo",
-                  strings = { Manifest.permission.READ_MEDIA_VIDEO }) ,
-      @Permission(alias = "publicStorage",
-                  strings = { Manifest.permission.READ_EXTERNAL_STORAGE})
+        @Permission(alias = "mediaVideo", strings = { Manifest.permission.READ_MEDIA_VIDEO }),
+        @Permission(alias = "publicStorage", strings = { Manifest.permission.READ_EXTERNAL_STORAGE })
     }
 )
 public class VideoPlayerPlugin extends Plugin {
@@ -83,30 +81,27 @@ public class VideoPlayerPlugin extends Plugin {
     private JSObject subTitleOptions;
     private final JSObject ret = new JSObject();
 
-
-
-  @Override
-  public void load() {
-      // Get context
-      this.context = getContext();
-      implementation = new VideoPlayer(this.context);
-      this.filesUtils = new FilesUtils(this.context);
-      this.fragmentUtils = new FragmentUtils(getBridge());
-  }
-
-  @PermissionCallback
-  private void permissionsCallback(PluginCall call) {
-    if (!isPermissionsGranted()) {
-      call.reject(PERMISSION_DENIED_ERROR);
-      return;
+    @Override
+    public void load() {
+        // Get context
+        this.context = getContext();
+        implementation = new VideoPlayer(this.context);
+        this.filesUtils = new FilesUtils(this.context);
+        this.fragmentUtils = new FragmentUtils(getBridge());
     }
-    switch (call.getMethodName()) {
-      case "initPlayer" -> _initPlayer(call);
+
+    @PermissionCallback
+    private void permissionsCallback(PluginCall call) {
+        if (!isPermissionsGranted()) {
+            call.reject(PERMISSION_DENIED_ERROR);
+            return;
+        }
+        switch (call.getMethodName()) {
+            case "initPlayer" -> _initPlayer(call);
+        }
     }
-  }
 
-
-  @PluginMethod
+    @PluginMethod
     public void echo(PluginCall call) {
         String value = call.getString("value");
 
@@ -116,11 +111,11 @@ public class VideoPlayerPlugin extends Plugin {
     }
 
     private boolean isPermissionsGranted() {
-      String permissionSet = PUBLICSTORAGE;
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        permissionSet = MEDIAVIDEO;
-      }
-      return getPermissionState(permissionSet) == PermissionState.GRANTED;
+        String permissionSet = PUBLICSTORAGE;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionSet = MEDIAVIDEO;
+        }
+        return getPermissionState(permissionSet) == PermissionState.GRANTED;
     }
 
     @PluginMethod
@@ -243,17 +238,17 @@ public class VideoPlayerPlugin extends Plugin {
             if (url.equals("internal") || url.contains("DCIM") || url.contains("Documents")) {
                 // Check for permissions to access media video files
                 if (isPermissionsGranted()) {
-                  _initPlayer(call);
+                    _initPlayer(call);
                 } else {
-                  this.bridge.saveCall(call);
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    requestPermissionForAlias(MEDIAVIDEO, call, "permissionsCallback");
-                  } else {
-                    requestPermissionForAlias(PUBLICSTORAGE, call, "permissionsCallback");
-                  }
+                    this.bridge.saveCall(call);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        requestPermissionForAlias(MEDIAVIDEO, call, "permissionsCallback");
+                    } else {
+                        requestPermissionForAlias(PUBLICSTORAGE, call, "permissionsCallback");
+                    }
                 }
             } else {
-              _initPlayer(call);
+                _initPlayer(call);
             }
         } else if ("embedded".equals(mode)) {
             ret.put("message", "Embedded Mode not implemented");
@@ -907,57 +902,58 @@ public class VideoPlayerPlugin extends Plugin {
     private void _initPlayer(PluginCall call) {
         // Got Permissions ;
         if (url.equals("internal")) {
-          createPickerVideoFragment(call);
+            createPickerVideoFragment(call);
         } else {
-          // get the videoPath
-          videoPath = filesUtils.getFilePath(url);
-          // get the subTitlePath if any
-          if (subtitle != null && subtitle.length() > 0) {
-            subTitlePath = filesUtils.getFilePath(subtitle);
-          } else {
-            subTitlePath = null;
-          }
-          Log.v(TAG, "*** calculated videoPath: " + videoPath);
-          Log.v(TAG, "*** calculated subTitlePath: " + subTitlePath);
-          if (videoPath != null) {
-            createFullScreenFragment(
-              call,
-              videoPath,
-              videoRate,
-              exitOnEnd,
-              loopOnEnd,
-              pipEnabled,
-              bkModeEnabled,
-              showControls,
-              displayMode,
-              subTitlePath,
-              language,
-              subTitleOptions,
-              headers,
-              title,
-              smallTitle,
-              accentColor,
-              chromecast,
-              artwork,
-              isTV,
-              playerId,
-              false,
-              null
-            );
-          } else {
-            Map<String, Object> info = new HashMap<String, Object>() {
-              {
-                put("dismiss", "1");
-                put("currentTime", "0");
-              }
-            };
-            NotificationCenter.defaultCenter().postNotification("playerFullscreenDismiss", info);
-            ret.put("message", "initPlayer command failed: Video file not found");
-            call.resolve(ret);
-            return;
-          }
+            // get the videoPath
+            videoPath = filesUtils.getFilePath(url);
+            // get the subTitlePath if any
+            if (subtitle != null && subtitle.length() > 0) {
+                subTitlePath = filesUtils.getFilePath(subtitle);
+            } else {
+                subTitlePath = null;
+            }
+            Log.v(TAG, "*** calculated videoPath: " + videoPath);
+            Log.v(TAG, "*** calculated subTitlePath: " + subTitlePath);
+            if (videoPath != null) {
+                createFullScreenFragment(
+                    call,
+                    videoPath,
+                    videoRate,
+                    exitOnEnd,
+                    loopOnEnd,
+                    pipEnabled,
+                    bkModeEnabled,
+                    showControls,
+                    displayMode,
+                    subTitlePath,
+                    language,
+                    subTitleOptions,
+                    headers,
+                    title,
+                    smallTitle,
+                    accentColor,
+                    chromecast,
+                    artwork,
+                    isTV,
+                    playerId,
+                    false,
+                    null
+                );
+            } else {
+                Map<String, Object> info = new HashMap<String, Object>() {
+                    {
+                        put("dismiss", "1");
+                        put("currentTime", "0");
+                    }
+                };
+                NotificationCenter.defaultCenter().postNotification("playerFullscreenDismiss", info);
+                ret.put("message", "initPlayer command failed: Video file not found");
+                call.resolve(ret);
+                return;
+            }
         }
     }
+
     private Boolean isInRate(Float arr[], Float rate) {
         Boolean ret = false;
         for (Float el : arr) {
@@ -970,169 +966,157 @@ public class VideoPlayerPlugin extends Plugin {
     }
 
     private void AddObserversToNotificationCenter() {
-        NotificationCenter
-            .defaultCenter()
-            .addMethodForNotification(
-                "playerItemPlay",
-                new MyRunnable() {
-                    @Override
-                    public void run() {
-                        JSObject data = new JSObject();
-                        data.put("fromPlayerId", this.getInfo().get("fromPlayerId"));
-                        data.put("currentTime", this.getInfo().get("currentTime"));
-                        notifyListeners("jeepCapVideoPlayerPlay", data);
-                        return;
-                    }
+        NotificationCenter.defaultCenter().addMethodForNotification(
+            "playerItemPlay",
+            new MyRunnable() {
+                @Override
+                public void run() {
+                    JSObject data = new JSObject();
+                    data.put("fromPlayerId", this.getInfo().get("fromPlayerId"));
+                    data.put("currentTime", this.getInfo().get("currentTime"));
+                    notifyListeners("jeepCapVideoPlayerPlay", data);
+                    return;
                 }
-            );
-        NotificationCenter
-            .defaultCenter()
-            .addMethodForNotification(
-                "playerItemPause",
-                new MyRunnable() {
-                    @Override
-                    public void run() {
-                        JSObject data = new JSObject();
-                        data.put("fromPlayerId", this.getInfo().get("fromPlayerId"));
-                        data.put("currentTime", this.getInfo().get("currentTime"));
-                        notifyListeners("jeepCapVideoPlayerPause", data);
-                        return;
-                    }
+            }
+        );
+        NotificationCenter.defaultCenter().addMethodForNotification(
+            "playerItemPause",
+            new MyRunnable() {
+                @Override
+                public void run() {
+                    JSObject data = new JSObject();
+                    data.put("fromPlayerId", this.getInfo().get("fromPlayerId"));
+                    data.put("currentTime", this.getInfo().get("currentTime"));
+                    notifyListeners("jeepCapVideoPlayerPause", data);
+                    return;
                 }
-            );
-        NotificationCenter
-            .defaultCenter()
-            .addMethodForNotification(
-                "playerItemReady",
-                new MyRunnable() {
-                    @Override
-                    public void run() {
-                        JSObject data = new JSObject();
-                        data.put("fromPlayerId", this.getInfo().get("fromPlayerId"));
-                        data.put("currentTime", this.getInfo().get("currentTime"));
-                        notifyListeners("jeepCapVideoPlayerReady", data);
-                        return;
-                    }
+            }
+        );
+        NotificationCenter.defaultCenter().addMethodForNotification(
+            "playerItemReady",
+            new MyRunnable() {
+                @Override
+                public void run() {
+                    JSObject data = new JSObject();
+                    data.put("fromPlayerId", this.getInfo().get("fromPlayerId"));
+                    data.put("currentTime", this.getInfo().get("currentTime"));
+                    notifyListeners("jeepCapVideoPlayerReady", data);
+                    return;
                 }
-            );
-        NotificationCenter
-            .defaultCenter()
-            .addMethodForNotification(
-                "playerItemEnd",
-                new MyRunnable() {
-                    @Override
-                    public void run() {
-                        final JSObject data = new JSObject();
-                        data.put("fromPlayerId", this.getInfo().get("fromPlayerId"));
-                        data.put("currentTime", this.getInfo().get("currentTime"));
-                        bridge
-                            .getActivity()
-                            .runOnUiThread(
-                                new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
+            }
+        );
+        NotificationCenter.defaultCenter().addMethodForNotification(
+            "playerItemEnd",
+            new MyRunnable() {
+                @Override
+                public void run() {
+                    final JSObject data = new JSObject();
+                    data.put("fromPlayerId", this.getInfo().get("fromPlayerId"));
+                    data.put("currentTime", this.getInfo().get("currentTime"));
+                    bridge
+                        .getActivity()
+                        .runOnUiThread(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
 
-                                        if (frameLayoutView != null) {
-                                            ((ViewGroup) getBridge().getWebView().getParent()).removeView(frameLayoutView);
-                                            fragmentUtils.removeFragment(fsFragment);
-                                        }
-                                        fsFragment = null;
-                                        NotificationCenter.defaultCenter().removeAllNotifications();
-                                        notifyListeners("jeepCapVideoPlayerEnded", data);
+                                    if (frameLayoutView != null) {
+                                        ((ViewGroup) getBridge().getWebView().getParent()).removeView(frameLayoutView);
+                                        fragmentUtils.removeFragment(fsFragment);
                                     }
+                                    fsFragment = null;
+                                    NotificationCenter.defaultCenter().removeAllNotifications();
+                                    notifyListeners("jeepCapVideoPlayerEnded", data);
                                 }
-                            );
-                    }
+                            }
+                        );
                 }
-            );
-        NotificationCenter
-            .defaultCenter()
-            .addMethodForNotification(
-                "playerFullscreenDismiss",
-                new MyRunnable() {
-                    @Override
-                    public void run() {
-                        boolean ret = false;
-                        final JSObject data = new JSObject();
-                        if (Integer.valueOf((String) this.getInfo().get("dismiss")) == 1) ret = true;
-                        data.put("dismiss", ret);
-                        data.put("currentTime", this.getInfo().get("currentTime"));
-                        bridge
-                            .getActivity()
-                            .runOnUiThread(
-                                new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
+            }
+        );
+        NotificationCenter.defaultCenter().addMethodForNotification(
+            "playerFullscreenDismiss",
+            new MyRunnable() {
+                @Override
+                public void run() {
+                    boolean ret = false;
+                    final JSObject data = new JSObject();
+                    if (Integer.valueOf((String) this.getInfo().get("dismiss")) == 1) ret = true;
+                    data.put("dismiss", ret);
+                    data.put("currentTime", this.getInfo().get("currentTime"));
+                    bridge
+                        .getActivity()
+                        .runOnUiThread(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
 
-                                        if (frameLayoutView != null) {
-                                            ((ViewGroup) getBridge().getWebView().getParent()).removeView(frameLayoutView);
-                                            fragmentUtils.removeFragment(fsFragment);
-                                        }
-                                        fsFragment = null;
-                                        NotificationCenter.defaultCenter().removeAllNotifications();
-                                        notifyListeners("jeepCapVideoPlayerExit", data);
+                                    if (frameLayoutView != null) {
+                                        ((ViewGroup) getBridge().getWebView().getParent()).removeView(frameLayoutView);
+                                        fragmentUtils.removeFragment(fsFragment);
                                     }
+                                    fsFragment = null;
+                                    NotificationCenter.defaultCenter().removeAllNotifications();
+                                    notifyListeners("jeepCapVideoPlayerExit", data);
                                 }
-                            );
+                            }
+                        );
+                }
+            }
+        );
+        NotificationCenter.defaultCenter().addMethodForNotification(
+            "videoPathInternalReady",
+            new MyRunnable() {
+                @Override
+                public void run() {
+                    long videoId = (Long) this.getInfo().get("videoId");
+                    // Get the previously saved call
+                    FrameLayout pickerLayoutView = getBridge().getActivity().findViewById(pickerLayoutViewId);
+                    if (pickerLayoutView != null) {
+                        ((ViewGroup) getBridge().getWebView().getParent()).removeView(pickerLayoutView);
+                        fragmentUtils.removeFragment(pkFragment);
+                    }
+                    pkFragment = null;
+                    if (videoId != -1) {
+                        Log.v(TAG, "§§§§ Notification videoPathInternalReady chromecast: " + chromecast);
+                        createFullScreenFragment(
+                            call,
+                            videoPath,
+                            videoRate,
+                            exitOnEnd,
+                            loopOnEnd,
+                            pipEnabled,
+                            bkModeEnabled,
+                            showControls,
+                            displayMode,
+                            null,
+                            null,
+                            null,
+                            headers,
+                            title,
+                            smallTitle,
+                            accentColor,
+                            chromecast,
+                            artwork,
+                            isTV,
+                            fsPlayerId,
+                            true,
+                            videoId
+                        );
+                    } else {
+                        Toast.makeText(context, "No Video files found ", Toast.LENGTH_SHORT).show();
+                        Map<String, Object> info = new HashMap<String, Object>() {
+                            {
+                                put("dismiss", "1");
+                                put("currentTime", "0");
+                            }
+                        };
+                        NotificationCenter.defaultCenter().postNotification("playerFullscreenDismiss", info);
                     }
                 }
-            );
-        NotificationCenter
-            .defaultCenter()
-            .addMethodForNotification(
-                "videoPathInternalReady",
-                new MyRunnable() {
-                    @Override
-                    public void run() {
-                        long videoId = (Long) this.getInfo().get("videoId");
-                        // Get the previously saved call
-                        FrameLayout pickerLayoutView = getBridge().getActivity().findViewById(pickerLayoutViewId);
-                        if (pickerLayoutView != null) {
-                            ((ViewGroup) getBridge().getWebView().getParent()).removeView(pickerLayoutView);
-                            fragmentUtils.removeFragment(pkFragment);
-                        }
-                        pkFragment = null;
-                        if (videoId != -1) {
-                            Log.v(TAG, "§§§§ Notification videoPathInternalReady chromecast: " + chromecast);
-                            createFullScreenFragment(
-                                call,
-                                videoPath,
-                                videoRate,
-                                exitOnEnd,
-                                loopOnEnd,
-                                pipEnabled,
-                                bkModeEnabled,
-                                showControls,
-                                displayMode,
-                                null,
-                                null,
-                                null,
-                                headers,
-                                title,
-                                smallTitle,
-                                accentColor,
-                                chromecast,
-                                artwork,
-                                isTV,
-                                fsPlayerId,
-                                true,
-                                videoId
-                            );
-                        } else {
-                            Toast.makeText(context, "No Video files found ", Toast.LENGTH_SHORT).show();
-                            Map<String, Object> info = new HashMap<String, Object>() {
-                                {
-                                    put("dismiss", "1");
-                                    put("currentTime", "0");
-                                }
-                            };
-                            NotificationCenter.defaultCenter().postNotification("playerFullscreenDismiss", info);
-                        }
-                    }
-                }
-            );
+            }
+        );
     }
 
     private void createFullScreenFragment(
@@ -1161,30 +1145,29 @@ public class VideoPlayerPlugin extends Plugin {
     ) {
         Log.v(TAG, "§§§§ createFullScreenFragment chromecast: " + chromecast);
 
-        fsFragment =
-            implementation.createFullScreenFragment(
-                videoPath,
-                videoRate,
-                exitOnEnd,
-                loopOnEnd,
-                pipEnabled,
-                bkModeEnabled,
-                showControls,
-                displayMode,
-                subTitle,
-                language,
-                subTitleOptions,
-                headers,
-                title,
-                smallTitle,
-                accentColor,
-                chromecast,
-                artwork,
-                isTV,
-                playerId,
-                isInternal,
-                videoId
-            );
+        fsFragment = implementation.createFullScreenFragment(
+            videoPath,
+            videoRate,
+            exitOnEnd,
+            loopOnEnd,
+            pipEnabled,
+            bkModeEnabled,
+            showControls,
+            displayMode,
+            subTitle,
+            language,
+            subTitleOptions,
+            headers,
+            title,
+            smallTitle,
+            accentColor,
+            chromecast,
+            artwork,
+            isTV,
+            playerId,
+            isInternal,
+            videoId
+        );
         bridge
             .getActivity()
             .runOnUiThread(

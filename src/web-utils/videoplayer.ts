@@ -73,13 +73,9 @@ export class VideoPlayer {
       this._container.style.backgroundColor = '#000000';
       this._container.style.zIndex = this._zIndex.toString();
       const width: number =
-        this._mode === 'fullscreen'
-          ? window.innerWidth /*this._container.offsetWidth*/
-          : this._width;
+        this._mode === 'fullscreen' ? window.innerWidth /*this._container.offsetWidth*/ : this._width;
       const height: number =
-        this._mode === 'fullscreen'
-          ? window.innerHeight /*this._container.offsetHeight*/
-          : this._height;
+        this._mode === 'fullscreen' ? window.innerHeight /*this._container.offsetHeight*/ : this._height;
       const xmlns = 'http://www.w3.org/2000/svg';
 
       const svg = document.createElementNS(xmlns, 'svg');
@@ -108,26 +104,15 @@ export class VideoPlayer {
       /*   Create Video Element */
       const isCreated = await this.createVideoElement(width, heightVideo);
       if (!isCreated) {
-        this._createEvent(
-          'Exit',
-          this._playerId,
-          'Video Error: failed to create the Video Element',
-        );
+        this._createEvent('Exit', this._playerId, 'Video Error: failed to create the Video Element');
       }
     } else {
-      this._createEvent(
-        'Exit',
-        this._playerId,
-        'Url Error: type not supported',
-      );
+      this._createEvent('Exit', this._playerId, 'Url Error: type not supported');
     }
     return;
   }
 
-  private async createVideoElement(
-    width: number,
-    height: number,
-  ): Promise<boolean> {
+  private async createVideoElement(width: number, height: number): Promise<boolean> {
     this.videoEl = document.createElement('video');
     this.videoEl.controls = true;
     this.videoEl.style.zIndex = (this._zIndex + 3).toString();
@@ -237,7 +222,7 @@ export class VideoPlayer {
   }
 
   private async _setPlayer(): Promise<boolean> {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       if (this.videoEl != null) {
         if (Hls.isSupported() && this._videoType === 'application/x-mpegURL') {
           const hls = new Hls();
@@ -255,16 +240,9 @@ export class VideoPlayer {
         } else if (this._videoType === 'video/mp4') {
           // CMAF (fMP4) && MP4
           this.videoEl.src = this._url;
-          if (
-            this._url.substring(0, 5) != 'https' &&
-            this._url.substring(0, 4) === 'http'
-          )
+          if (this._url.substring(0, 5) != 'https' && this._url.substring(0, 4) === 'http')
             this.videoEl.crossOrigin = 'anonymous';
-          if (
-            this._url.substring(0, 5) === 'https' ||
-            this._url.substring(0, 4) === 'http'
-          )
-            this.videoEl.muted = true;
+          if (this._url.substring(0, 5) === 'https' || this._url.substring(0, 4) === 'http') this.videoEl.muted = true;
           resolve(true);
         } else {
           // Not Supported
@@ -315,10 +293,7 @@ export class VideoPlayer {
       // we check for not supported extensions for URLs that might have the extension as a query parameter
       // e.g. https://youtube.com/?v=3982748927&filetype=mkv
       const hasNotSupportedExtensionInUrl = sUrl.match(
-        new RegExp(
-          `(${possibleQueryParameterExtensions.join('|')})\=+(.*)&?(?=&|$))`,
-          'i',
-        ),
+        new RegExp(`(${possibleQueryParameterExtensions.join('|')})=+(.*)&?(?=&|$))`, 'i'),
       );
       if (hasNotSupportedExtensionInUrl) {
         return (this._videoType = null);
@@ -357,8 +332,7 @@ export class VideoPlayer {
     const mydoc: any = document;
     const isInFullScreen: boolean =
       (mydoc.fullscreenElement && mydoc.fullscreenElement !== null) ||
-      (mydoc.webkitFullscreenElement &&
-        mydoc.webkitFullscreenElement !== null) ||
+      (mydoc.webkitFullscreenElement && mydoc.webkitFullscreenElement !== null) ||
       (mydoc.mozFullScreenElement && mydoc.mozFullScreenElement !== null) ||
       (mydoc.msFullscreenElement && mydoc.msFullscreenElement !== null);
     if (isInFullScreen) {

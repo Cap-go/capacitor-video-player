@@ -33,9 +33,7 @@ export interface VideoPlayerPlugin {
    * Get the current time of the current video from a given playerId
    *
    */
-  getCurrentTime(
-    options: capVideoPlayerIdOptions,
-  ): Promise<capVideoPlayerResult>;
+  getCurrentTime(options: capVideoPlayerIdOptions): Promise<capVideoPlayerResult>;
   /**
    * Set the current time to seek the current video to from a given playerId
    *

@@ -1,8 +1,8 @@
 package com.capgo.videoplayer;
 
 import android.content.Context;
-import com.getcapacitor.JSObject;
 import com.capgo.videoplayer.PickerVideo.PickerVideoFragment;
+import com.getcapacitor.JSObject;
 
 public class VideoPlayer {
 

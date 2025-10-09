@@ -1,5 +1,5 @@
 {
-  "name": "@capgo/video-player",
+  "name": "@capgo/capacitor-video-player",
   "version": "7.0.0",
   "description": "Native video playback for Capacitor apps",
   "main": "dist/plugin.cjs.js",
@@ -13,7 +13,7 @@
     "ios/Sources",
     "ios/Tests",
     "Package.swift",
-    "CapgoVideoPlayer.podspec"
+    "CapgoCapacitorVideoPlayer.podspec"
   ],
   "author": "Martin Donadieu <martin@capgo.app>",
   "license": "MIT",
@@ -31,7 +31,7 @@
   ],
   "scripts": {
     "verify": "npm run verify:ios && npm run verify:android && npm run verify:web",
-    "verify:ios": "xcodebuild -scheme CapgoVideoPlayer -destination generic/platform=iOS",
+    "verify:ios": "xcodebuild -scheme CapgoCapacitorVideoPlayer -destination generic/platform=iOS",
     "verify:android": "cd android && ./gradlew clean build test && cd ..",
     "verify:web": "npm run build",
     "lint": "npm run eslint && npm run prettier -- --check && npm run swiftlint -- lint",
