@@ -2,23 +2,250 @@
 <html lang="en" dir="ltr" class="hydrated">
   <head>
     <meta charset="UTF-8" />
-    <title>Example Capacitor App</title>
+    <title>Video Player Demo</title>
     <meta
       name="viewport"
       content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <meta name="format-detection" content="telephone=no" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #f5f5f5;
+        color: #1f1f1f;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #111;
+          color: #f5f5f5;
+        }
+        .card {
+          background: #1c1c1c;
+          box-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+        }
+      }
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 1.9rem;
+      }
+      h2 {
+        margin: 0 0 16px;
+        font-size: 1.2rem;
+      }
+      p {
+        margin: 0;
+        line-height: 1.45;
+      }
+      .card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+      }
+      label {
+        font-weight: 600;
+        margin-bottom: 6px;
+        display: block;
+      }
+      input,
+      select {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(60, 60, 60, 0.25);
+        background: inherit;
+        color: inherit;
+      }
+      input[type='checkbox'] {
+        width: auto;
+        margin-right: 6px;
+      }
+      button {
+        cursor: pointer;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        background: #2563eb;
+        color: white;
+      }
+      button.secondary {
+        background: transparent;
+        border: 1px solid rgba(60, 60, 60, 0.35);
+        color: inherit;
+      }
+      button + button {
+        margin-left: 8px;
+      }
+      button[disabled] {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+      .controls-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .inline {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      #embedded-player {
+        width: 100%;
+        min-height: 220px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      pre.log {
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+        background: rgba(17, 24, 39, 0.9);
+        color: #d1d5db;
+        border-radius: 8px;
+        padding: 12px;
+        min-height: 160px;
+        max-height: 320px;
+        overflow-y: auto;
+        margin: 12px 0 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+    </style>
   </head>
   <body>
     <main>
-      <h1>Capacitor Test Plugin Project</h1>
-      <p>
-        This project can be used to test out the functionality of your plugin. Nothing in the
-        <em>example-app/</em> folder will be published to npm when using this template, so you can create away!
-      </p>
-      <label for="echoInput">Echo Text:</label>
-      <input type="text" id="echoInput" name="echoInput" value="Hello World!" />
-      <button onclick="testEcho()">Click Me!</button>
+      <header>
+        <h1>@capgo/capacitor-video-player</h1>
+        <p>Embed and control native-like video playback directly from this playground.</p>
+      </header>
+
+      <section class="card">
+        <h2>1. Player Setup</h2>
+        <div class="field-grid">
+          <div>
+            <label for="videoUrl">Video URL</label>
+            <input
+              id="videoUrl"
+              value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+            />
+          </div>
+          <div>
+            <label for="videoWidth">Width (px)</label>
+            <input id="videoWidth" type="number" value="640" min="200" max="1920" />
+          </div>
+          <div>
+            <label for="videoHeight">Height (px)</label>
+            <input id="videoHeight" type="number" value="360" min="150" max="1080" />
+          </div>
+          <div>
+            <label for="initialRate">Initial Rate</label>
+            <select id="initialRate">
+              <option value="0.5">0.5x</option>
+              <option value="0.75">0.75x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+            </select>
+          </div>
+        </div>
+        <div class="controls-row">
+          <label class="inline" for="exitOnEnd">
+            <input id="exitOnEnd" type="checkbox" checked />
+            Exit player when video ends
+          </label>
+          <label class="inline" for="loopOnEnd">
+            <input id="loopOnEnd" type="checkbox" />
+            Loop if exit disabled
+          </label>
+        </div>
+        <div class="controls-row">
+          <button id="initButton">Initialise Player</button>
+          <button id="destroyButton" class="secondary" disabled>Destroy Player</button>
+        </div>
+        <p id="statusText">Status: not initialised</p>
+      </section>
+
+      <section id="playerControls" class="card" hidden>
+        <h2>2. Playback Controls</h2>
+        <div id="embedded-player"></div>
+
+        <div class="controls-row">
+          <button id="playButton" disabled>Play</button>
+          <button id="pauseButton" disabled>Pause</button>
+          <button id="stopButton" disabled>Stop All</button>
+        </div>
+
+        <div class="field-grid">
+          <div>
+            <label for="seekSeconds">Seek To (seconds)</label>
+            <input id="seekSeconds" type="number" value="10" min="0" step="1" />
+          </div>
+          <div>
+            <label for="volumeLevel">Volume (0-1)</label>
+            <input id="volumeLevel" type="number" value="0.5" min="0" max="1" step="0.05" />
+          </div>
+          <div>
+            <label for="rateSelect">Playback Rate</label>
+            <select id="rateSelect">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="0.75">0.75x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="controls-row">
+          <button id="seekButton" disabled>Seek</button>
+          <button id="rateButton" disabled>Apply Rate</button>
+          <button id="volumeButton" disabled>Apply Volume</button>
+          <button id="muteButton" disabled>Mute</button>
+          <button id="unmuteButton" disabled>Unmute</button>
+        </div>
+
+        <div class="controls-row">
+          <button id="timeInfoButton" disabled>Get Current Time</button>
+          <button id="durationButton" disabled>Get Duration</button>
+          <button id="volumeInfoButton" disabled>Get Volume</button>
+          <button id="rateInfoButton" disabled>Get Rate</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>3. Event Log</h2>
+        <div class="controls-row">
+          <button id="clearLog" class="secondary">Clear Log</button>
+        </div>
+        <pre id="logOutput" class="log">Logs will appear here.</pre>
+      </section>
     </main>
 
     <script src="./js/example.js" type="module"></script>
