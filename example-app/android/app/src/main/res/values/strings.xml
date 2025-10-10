@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">example-app</string>
-    <string name="title_activity_main">example-app</string>
-    <string name="package_name">com.example.plugin</string>
-    <string name="custom_url_scheme">com.example.plugin</string>
+    <string name="app_name">Video Player Example</string>
+    <string name="title_activity_main">Video Player Example</string>
+    <string name="package_name">app.capgo.video.player</string>
+    <string name="custom_url_scheme">app.capgo.video.player</string>
 </resources>
