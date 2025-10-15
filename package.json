@@ -1,6 +1,6 @@
 {
   "name": "@capgo/capacitor-video-player",
-  "version": "7.0.5",
+  "version": "7.0.6",
   "description": "Capacitor plugin to play video in native player",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
