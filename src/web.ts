@@ -754,4 +754,8 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
       false,
     );
   }
+
+  async getPluginVersion(): Promise<{ version: string }> {
+    return { version: 'web' };
+  }
 }
