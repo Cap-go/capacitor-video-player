@@ -7,7 +7,7 @@ import Capacitor
  */
 @objc(VideoPlayerPlugin)
 public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
-    private let PLUGIN_VERSION: String = ""
+    private let PLUGIN_VERSION: String = "7.1.0"
     public let identifier = "VideoPlayerPlugin"
     public let jsName = "VideoPlayer"
     public let pluginMethods: [CAPPluginMethod] = [

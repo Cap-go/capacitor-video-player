@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.1.0](https://github.com/Cap-go/capacitor-video-player/compare/7.0.7...7.1.0) (2025-10-23)
+
+
+### Features
+
+* add getPluginVersion method to VideoPlayerPlugin and web implementation ([d9f0d89](https://github.com/Cap-go/capacitor-video-player/commit/d9f0d8950fb6ea1bf93732b9a6b383bd3114cbd2))
+
+
+### Bug Fixes
+
+* remove content field from Discord release notification ([e283417](https://github.com/Cap-go/capacitor-video-player/commit/e2834170b509c25c529f9bd9122b7aab8e45d20a))
+
 ## [7.0.7](https://github.com/Cap-go/capacitor-video-player/compare/7.0.6...7.0.7) (2025-10-16)
 
 ## [7.0.6](https://github.com/Cap-go/capacitor-video-player/compare/7.0.5...7.0.6) (2025-10-15)
