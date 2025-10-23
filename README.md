@@ -389,6 +389,10 @@ Exit player
 | **`backgroundColor`** | <code>string</code> | Background Color in RGBA (default rgba(0,0,0,1)       |
 | **`fontSize`**        | <code>number</code> | Font Size in pixels (default 16)                      |
 
+| Method               | Signature                                    | Description                             |
+| -------------------- | -------------------------------------------- | --------------------------------------- |
+| **getPluginVersion** | () =&gt; Promise&lt;{ version: string; }&gt; | Get the native Capacitor plugin version |
+
 
 #### capVideoPlayerIdOptions
 
