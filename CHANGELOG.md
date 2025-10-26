@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.1.3](https://github.com/Cap-go/capacitor-video-player/compare/7.1.2...7.1.3) (2025-10-26)
+
+
+### Bug Fixes
+
+* prevent bump for app ([6de28ef](https://github.com/Cap-go/capacitor-video-player/commit/6de28ef1375ba5c3f2dae5d28e037b8de51bd097))
+
 ## [7.1.2](https://github.com/Cap-go/capacitor-video-player/compare/7.1.1...7.1.2) (2025-10-26)
 
 ## [7.1.1](https://github.com/Cap-go/capacitor-video-player/compare/7.1.0...7.1.1) (2025-10-23)
