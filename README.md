@@ -7,6 +7,10 @@
 </div>
 Native video playback for Capacitor apps
 
+## Documentation
+
+The most complete doc is available here: https://capgo.app/docs/plugins/video-player/
+
 ## Install
 
 ```bash
