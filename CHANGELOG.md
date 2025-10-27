@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.1.4](https://github.com/Cap-go/capacitor-video-player/compare/7.1.3...7.1.4) (2025-10-27)
+
+
+### Bug Fixes
+
+* renovate capacitor dep ([5357181](https://github.com/Cap-go/capacitor-video-player/commit/535718174a762d4d83568c84417bb84f7eb79751))
+
 ## [7.1.3](https://github.com/Cap-go/capacitor-video-player/compare/7.1.2...7.1.3) (2025-10-26)
 
 
