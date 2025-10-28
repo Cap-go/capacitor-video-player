@@ -12,10 +12,6 @@ public class VideoPlayer {
         this.context = context;
     }
 
-    public String echo(String value) {
-        return value;
-    }
-
     public FullscreenExoPlayerFragment createFullScreenFragment(
         String videoPath,
         Float videoRate,

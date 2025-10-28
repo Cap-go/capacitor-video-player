@@ -28,10 +28,6 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
     this.addListeners();
   }
 
-  async echo(options: capEchoOptions): Promise<capVideoPlayerResult> {
-    return Promise.resolve({ result: true, method: 'echo', value: options });
-  }
-
   /**
    *  Player initialization
    *

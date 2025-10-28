@@ -1,10 +1,5 @@
 export interface VideoPlayerPlugin {
   /**
-   * Echo
-   *
-   */
-  echo(options: capEchoOptions): Promise<capVideoPlayerResult>;
-  /**
    * Initialize a video player
    *
    */

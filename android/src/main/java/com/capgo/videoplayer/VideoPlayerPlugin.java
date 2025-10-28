@@ -103,15 +103,6 @@ public class VideoPlayerPlugin extends Plugin {
         }
     }
 
-    @PluginMethod
-    public void echo(PluginCall call) {
-        String value = call.getString("value");
-
-        JSObject ret = new JSObject();
-        ret.put("value", implementation.echo(value));
-        call.resolve(ret);
-    }
-
     private boolean isPermissionsGranted() {
         String permissionSet = PUBLICSTORAGE;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

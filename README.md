@@ -47,23 +47,6 @@ npx cap sync
 <docgen-api>
 <!--Update the source file JSDoc comments and rerun docgen to update the docs below-->
 
-### echo(...)
-
-```typescript
-echo(options: capEchoOptions) => Promise<capVideoPlayerResult>
-```
-
-Echo
-
-| Param         | Type                                                      |
-| ------------- | --------------------------------------------------------- |
-| **`options`** | <code><a href="#capechooptions">capEchoOptions</a></code> |
-
-**Returns:** <code>Promise&lt;<a href="#capvideoplayerresult">capVideoPlayerResult</a>&gt;</code>
-
---------------------
-
-
 ### initPlayer(...)
 
 ```typescript
