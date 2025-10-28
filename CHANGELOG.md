@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.2.0](https://github.com/Cap-go/capacitor-video-player/compare/7.1.5...7.2.0) (2025-10-28)
+
+
+### Features
+
+* implement FullscreenVideoPlayer class and update VideoPlayerPlugin methods ([64518ea](https://github.com/Cap-go/capacitor-video-player/commit/64518ea1135a22a36e95ad4de0c42d5b8c88a210))
+
 ## [7.1.5](https://github.com/Cap-go/capacitor-video-player/compare/7.1.4...7.1.5) (2025-10-28)
 
 
