@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.1.5](https://github.com/Cap-go/capacitor-video-player/compare/7.1.4...7.1.5) (2025-10-28)
+
+
+### Bug Fixes
+
+* CI/CD config ([0e20ac5](https://github.com/Cap-go/capacitor-video-player/commit/0e20ac51e2a2b1caa548e523f8bdea6a18cfd9d0))
+* update github action ([29d5872](https://github.com/Cap-go/capacitor-video-player/commit/29d5872862f34f225bf03c9a9c1a5bdd92f9e088))
+
 ## [7.1.4](https://github.com/Cap-go/capacitor-video-player/compare/7.1.3...7.1.4) (2025-10-27)
 
 
