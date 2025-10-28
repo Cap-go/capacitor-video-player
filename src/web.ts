@@ -2,7 +2,6 @@ import { WebPlugin } from '@capacitor/core';
 
 import type {
   VideoPlayerPlugin,
-  capEchoOptions,
   capVideoPlayerOptions,
   capVideoPlayerIdOptions,
   capVideoVolumeOptions,

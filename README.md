@@ -22,7 +22,6 @@ npx cap sync
 
 <docgen-index>
 
-* [`echo(...)`](#echo)
 * [`initPlayer(...)`](#initplayer)
 * [`isPlaying(...)`](#isplaying)
 * [`play(...)`](#play)
@@ -331,13 +330,6 @@ Exit player
 | **`method`**  | <code>string</code>  | method name                                   |
 | **`value`**   | <code>any</code>     | value returned                                |
 | **`message`** | <code>string</code>  | message string                                |
-
-
-#### capEchoOptions
-
-| Prop        | Type                | Description         |
-| ----------- | ------------------- | ------------------- |
-| **`value`** | <code>string</code> | String to be echoed |
 
 
 #### capVideoPlayerOptions
