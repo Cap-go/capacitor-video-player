@@ -38,7 +38,7 @@ import java.util.Map;
 )
 public class VideoPlayerPlugin extends Plugin {
 
-    private final String PLUGIN_VERSION = "7.2.0";
+    private final String PLUGIN_VERSION = "7.2.1";
 
     // Permission alias constants
     private static final String PERMISSION_DENIED_ERROR = "Unable to access media videos, user denied permission request";
