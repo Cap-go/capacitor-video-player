@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [7.2.2](https://github.com/Cap-go/capacitor-video-player/compare/7.2.1...7.2.2) (2025-10-30)
+
+
+### Bug Fixes
+
+* pluginVersion lint issue ([44b652d](https://github.com/Cap-go/capacitor-video-player/commit/44b652d4995bfd7d0975174c5056a517d42c3293))
+
 ## [7.2.1](https://github.com/Cap-go/capacitor-video-player/compare/7.2.0...7.2.1) (2025-10-29)
 
 
