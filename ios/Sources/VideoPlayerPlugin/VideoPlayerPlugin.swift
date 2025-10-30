@@ -8,7 +8,7 @@ import AVKit
  */
 @objc(VideoPlayerPlugin)
 public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
-    private let PLUGIN_VERSION: String = "7.2.1"
+    private let pluginVersion: String = "7.2.1"
     public let identifier = "VideoPlayerPlugin"
     public let jsName = "VideoPlayer"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -36,7 +36,7 @@ public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     private var currentPlayerId: String?
 
     @objc func getPluginVersion(_ call: CAPPluginCall) {
-        call.resolve(["version": self.PLUGIN_VERSION])
+        call.resolve(["version": self.pluginVersion])
     }
 
     @objc func initPlayer(_ call: CAPPluginCall) {
