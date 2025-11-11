@@ -264,7 +264,7 @@ const seekTo = async () => {
   const seconds = Math.max(0, parseNumber(ui.seekSeconds.value, 0));
   try {
     const result = await VideoPlayer.setCurrentTime({ playerId: PLAYER_ID, seektime: seconds });
-    log(`Seeked to ${seconds}s.`, result);
+    log(`Sought to ${seconds}s.`, result);
   } catch (error) {
     log('Failed to seek video', error);
   }

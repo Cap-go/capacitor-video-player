@@ -255,7 +255,7 @@ export interface capVideoListener {
    */
   playerId?: string;
   /**
-   * Video current time when listener trigerred
+   * Video current time when listener triggered
    */
   currentTime?: number;
 }
@@ -265,7 +265,7 @@ export interface capExitListener {
    */
   dismiss?: boolean;
   /**
-   * Video current time when listener trigerred
+   * Video current time when listener triggered
    */
   currentTime?: number;
 }

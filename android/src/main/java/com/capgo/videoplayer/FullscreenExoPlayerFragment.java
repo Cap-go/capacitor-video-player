@@ -176,7 +176,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private MediaSessionConnector mediaSessionConnector;
     private PlayerControlView.VisibilityListener visibilityListener;
     private PackageManager packageManager;
-    private Boolean isPIPModeeEnabled = true;
+    private Boolean isPIPModeEnabled = true;
     final Handler handler = new Handler();
     final Runnable mRunnable = new Runnable() {
         @RequiresApi(api = Build.VERSION_CODES.N)
@@ -533,7 +533,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
             !isInPictureInPictureMode &&
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
             packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE) &&
-            isPIPModeeEnabled &&
+            isPIPModeEnabled &&
             pipEnabled &&
             playerReady // <- playerReady: this prevents a crash if the user presses back before the player is ready (when enters in pip mode and tries to get the aspect ratio)
         ) {
@@ -624,7 +624,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     private void checkPIPPermission() {
-        isPIPModeeEnabled = isInPictureInPictureMode;
+        isPIPModeEnabled = isInPictureInPictureMode;
         if (!isInPictureInPictureMode) {
             backPressed();
         }
