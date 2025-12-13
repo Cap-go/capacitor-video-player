@@ -83,7 +83,7 @@ class FullscreenVideoPlayer: NSObject {
         player.addObserver(self, forKeyPath: "rate", options: [.new, .old], context: nil)
     }
 
-    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
         if keyPath == "status" {
             if let item = object as? AVPlayerItem {
                 if item.status == .readyToPlay {
