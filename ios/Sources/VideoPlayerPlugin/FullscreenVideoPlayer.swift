@@ -51,9 +51,7 @@ class FullscreenVideoPlayer: NSObject {
         playerViewController?.showsPlaybackControls = showControls
 
         // Picture in Picture support
-        if #available(iOS 14.2, *) {
-            playerViewController?.allowsPictureInPicturePlayback = pipEnabled
-        }
+        playerViewController?.allowsPictureInPicturePlayback = pipEnabled
 
         // Setup observers
         setupObservers()
