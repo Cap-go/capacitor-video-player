@@ -884,12 +884,8 @@ public class VideoPlayerPlugin extends Plugin {
     }
 
     public boolean isDeviceTV(Context context) {
-        //Since Android TV is only API 21+ that is the only time we will compare configurations
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            UiModeManager uiManager = (UiModeManager) context.getSystemService(Context.UI_MODE_SERVICE);
-            return uiManager != null && uiManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;
-        }
-        return false;
+        UiModeManager uiManager = (UiModeManager) context.getSystemService(Context.UI_MODE_SERVICE);
+        return uiManager != null && uiManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;
     }
 
     private void _initPlayer(PluginCall call) {
