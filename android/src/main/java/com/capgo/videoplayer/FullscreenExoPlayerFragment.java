@@ -79,7 +79,6 @@ import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
 import com.google.android.exoplayer2.util.MimeTypes;
-import com.google.android.exoplayer2.util.Util;
 import com.google.android.gms.cast.framework.CastButtonFactory;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastState;
@@ -638,19 +637,17 @@ public class FullscreenExoPlayerFragment extends Fragment {
         super.onStart();
         //if (chromecast && castContext != null) mRouter.addCallback(mSelector, mCallback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY);
 
-        if (Util.SDK_INT >= 24) {
-            if (styledPlayerView != null) {
-                // If cast is playing then it doesn't start the local player once get backs from background
-                if (castContext != null && chromecast && castPlayer.isCastSessionAvailable()) return;
+        if (styledPlayerView != null) {
+            // If cast is playing then it doesn't start the local player once get backs from background
+            if (castContext != null && chromecast && castPlayer.isCastSessionAvailable()) return;
 
-                initializePlayer();
-                if (player.getCurrentPosition() != 0) {
-                    firstReadyToPlay = false;
-                    play();
-                }
-            } else {
-                getActivity().finishAndRemoveTask();
+            initializePlayer();
+            if (player.getCurrentPosition() != 0) {
+                firstReadyToPlay = false;
+                play();
             }
+        } else {
+            getActivity().finishAndRemoveTask();
         }
     }
 
@@ -690,17 +687,12 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (bkModeEnabled) isAppBackground = isApplicationSentToBackground(context);
 
         if (!isInPictureInPictureMode) {
-            if (Util.SDK_INT < 24) {
-                if (player != null) player.setPlayWhenReady(false);
-                releasePlayer();
-            } else {
-                if (isAppBackground) {
-                    if (player != null) {
-                        if (player.isPlaying()) play();
-                    }
-                } else {
-                    pause();
+            if (isAppBackground) {
+                if (player != null) {
+                    if (player.isPlaying()) play();
                 }
+            } else {
+                pause();
             }
         } else {
             if (linearLayout.getVisibility() == View.VISIBLE) {
@@ -742,7 +734,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         //if (chromecast && castContext != null) castContext.addCastStateListener(castStateListener);
         if (!isInPictureInPictureMode) {
             hideSystemUi();
-            if ((Util.SDK_INT < 24 || player == null)) {
+            if (player == null) {
                 initializePlayer();
             }
         } else {
