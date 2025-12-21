@@ -178,7 +178,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private Boolean isPIPModeEnabled = true;
     final Handler handler = new Handler();
     final Runnable mRunnable = new Runnable() {
-        @RequiresApi(api = Build.VERSION_CODES.N)
         public void run() {
             checkPIPPermission();
         }
@@ -332,7 +331,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                                 NotificationCenter.defaultCenter().postNotification("playerItemPlay", info);
                                 resizeBtn.setVisibility(View.VISIBLE);
 
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && pipEnabled) {
+                                if (pipEnabled) {
                                     pipBtn.setVisibility(View.VISIBLE);
                                 }
                             } else {
@@ -530,7 +529,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
         }
         if (
             !isInPictureInPictureMode &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
             packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE) &&
             isPIPModeEnabled &&
             pipEnabled &&
@@ -589,7 +587,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
      * Perform pictureInPictureMode Action
      */
     private void pictureInPictureMode() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
             styledPlayerView.setUseController(false);
             styledPlayerView.setControllerAutoShow(false);
             linearLayout.setVisibility(View.INVISIBLE);
@@ -621,7 +619,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     private void checkPIPPermission() {
         isPIPModeEnabled = isInPictureInPictureMode;
         if (!isInPictureInPictureMode) {
