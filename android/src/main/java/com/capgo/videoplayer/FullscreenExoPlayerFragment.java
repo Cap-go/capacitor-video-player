@@ -35,6 +35,7 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.constraintlayout.widget.ConstraintLayout;
@@ -404,39 +405,43 @@ public class FullscreenExoPlayerFragment extends Fragment {
                         // Set the onKey listener
                         view.setFocusableInTouchMode(true);
                         view.requestFocus();
+
+                        OnBackPressedCallback callback = new OnBackPressedCallback(true) {
+                            @Override
+                            public void handleOnBackPressed() {
+                                backPressed();
+                            }
+                        };
+                        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), callback);
+
                         view.setOnKeyListener(
                             new View.OnKeyListener() {
                                 @Override
                                 public boolean onKey(View v, int keyCode, KeyEvent event) {
                                     if (event.getAction() == KeyEvent.ACTION_UP) {
                                         long videoPosition = player.getCurrentPosition();
-                                        Log.v(TAG, "$$$$ onKey " + keyCode + " $$$$");
-                                        if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME) {
-                                            Log.v(TAG, "$$$$ Going to backpress $$$$");
-                                            backPressed();
-                                        } else if (isTV) {
+                                        if (isTV) {
                                             switch (keyCode) {
                                                 case KeyEvent.KEYCODE_DPAD_RIGHT:
                                                     fastForward(videoPosition, 1);
-                                                    break;
+                                                    return true;
                                                 case KeyEvent.KEYCODE_DPAD_LEFT:
                                                     rewind(videoPosition, 1);
-                                                    break;
+                                                    return true;
                                                 case KeyEvent.KEYCODE_DPAD_CENTER:
                                                     play_pause();
-                                                    break;
+                                                    return true;
                                                 case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
                                                     fastForward(videoPosition, 2);
-                                                    break;
+                                                    return true;
                                                 case KeyEvent.KEYCODE_MEDIA_REWIND:
                                                     rewind(videoPosition, 2);
-                                                    break;
+                                                    return true;
                                             }
                                         }
-                                        return true;
-                                    } else {
                                         return false;
                                     }
+                                    return false;
                                 }
                             }
                         );
@@ -540,6 +545,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
      * Perform backPressed Action
      */
     private void backPressed() {
+        if (styledPlayerView != null && styledPlayerView.isControllerFullyVisible() && !isCastSession) {
+            styledPlayerView.hideController();
+            return;
+        }
         if (isCastSession) {
             playerExit();
             return;
