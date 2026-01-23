@@ -269,6 +269,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 @Override
                 public void onVisibilityChanged(int visibility) {
                     linearLayout.setVisibility(visibility);
+
+                    if (visibility == View.GONE && view != null) {
+                        requestFocusOnPlayer();
+                    }
                 }
             }
         );
@@ -327,9 +331,14 @@ public class FullscreenExoPlayerFragment extends Fragment {
                         } else {
                             Log.v(TAG, "**** in ExoPlayer.STATE_READY isPlaying " + player.isPlaying());
                             if (player.isPlaying()) {
+                                if (isTV) {
+                                    requestFocusOnPlayer();
+                                }else{
+                                    resizeBtn.setVisibility(View.VISIBLE);
+                                }
+
                                 Log.v(TAG, "**** in ExoPlayer.STATE_READY going to notify playerItemPlay ");
                                 NotificationCenter.defaultCenter().postNotification("playerItemPlay", info);
-                                resizeBtn.setVisibility(View.VISIBLE);
 
                                 if (pipEnabled) {
                                     pipBtn.setVisibility(View.VISIBLE);
@@ -498,6 +507,18 @@ public class FullscreenExoPlayerFragment extends Fragment {
         @Override
         protected void onPostExecute(Bitmap result) {
             cast_image.setImageBitmap(result);
+        }
+    }
+
+    private void requestFocusOnPlayer() {
+        if (styledPlayerView != null) {
+            View playButton = styledPlayerView.findViewById(com.google.android.exoplayer2.ui.R.id.exo_play_pause);
+
+            if (playButton != null && playButton.getWidth() > 0) {
+                playButton.requestFocus();
+            } else {
+                styledPlayerView.requestFocus();
+            }
         }
     }
 
