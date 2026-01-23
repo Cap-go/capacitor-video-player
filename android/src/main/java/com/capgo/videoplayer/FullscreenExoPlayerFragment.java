@@ -366,10 +366,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
             }
         };
 
-        if (isTV) {
-            Toast.makeText(context, "Device is a TV ", Toast.LENGTH_SHORT).show();
-        }
-
         if (!isInternal) {
             uri = Uri.parse(videoPath);
             sturi = subTitle != null ? Uri.parse(subTitle) : null;
