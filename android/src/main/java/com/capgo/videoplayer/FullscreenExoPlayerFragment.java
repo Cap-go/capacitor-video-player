@@ -121,6 +121,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     public String accentColor;
     public Boolean chromecast;
     public String artwork;
+    public JSObject drmOptions;
 
     private static final String TAG = FullscreenExoPlayerFragment.class.getName();
     public static final long UNKNOWN_TIME = -1L;
@@ -910,6 +911,9 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
         DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(context, httpDataSourceFactory);
 
+        // Build the MediaItem, applying Widevine DRM configuration if provided
+        MediaItem mediaItem = buildMediaItem(uri);
+
         if (
             vType.equals("mp4") ||
             vType.equals("webm") ||
@@ -918,21 +922,43 @@ public class FullscreenExoPlayerFragment extends Fragment {
             vType.equals("flv") ||
             vType.equals("")
         ) {
-            mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(uri));
+            mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem);
         } else if (vType.equals("dash") || vType.equals("mpd")) {
             /* adaptive streaming Dash stream */
             DashMediaSource.Factory mediaSourceFactory = new DashMediaSource.Factory(dataSourceFactory);
-            mediaSource = mediaSourceFactory.createMediaSource(MediaItem.fromUri(uri));
+            mediaSource = mediaSourceFactory.createMediaSource(mediaItem);
         } else if (vType.equals("m3u8")) {
-            mediaSource = new HlsMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(uri));
+            mediaSource = new HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem);
         } else if (vType.equals("ism")) {
-            mediaSource = new SsMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(uri));
+            mediaSource = new SsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem);
         }
         // Get the subtitles if any
         if (sturi != null) {
             mediaSource = getSubTitle(mediaSource, sturi, dataSourceFactory);
         }
         return mediaSource;
+    }
+
+    /**
+     * Build a MediaItem for the given URI, applying Widevine DRM configuration if provided
+     * @param uri the media URI
+     * @return MediaItem
+     */
+    private MediaItem buildMediaItem(Uri uri) {
+        String widevineLicenseUrl = null;
+        if (drmOptions != null) {
+            JSObject widevineOptions = drmOptions.getJSObject("widevine");
+            if (widevineOptions != null && widevineOptions.has("certificateUrl")) {
+                widevineLicenseUrl = widevineOptions.getString("certificateUrl");
+            }
+        }
+        if (widevineLicenseUrl != null && !widevineLicenseUrl.isEmpty()) {
+            MediaItem.DrmConfiguration drmConfig = new MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+                .setLicenseUri(widevineLicenseUrl)
+                .build();
+            return new MediaItem.Builder().setUri(uri).setDrmConfiguration(drmConfig).build();
+        }
+        return MediaItem.fromUri(uri);
     }
 
     /**

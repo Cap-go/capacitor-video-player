@@ -74,6 +74,12 @@ public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         let pipEnabled = call.getBool("pipEnabled") ?? true
         let showControls = call.getBool("showControls") ?? true
 
+        // Extract FairPlay DRM options if provided
+        let drm = call.getObject("drm")
+        let fairplay = drm?["fairplay"] as? [String: Any]
+        let fairplayCertificateUrl = fairplay?["certificateUrl"] as? String
+        let fairplayContentKeySpcUrl = fairplay?["contentKeySpcUrl"] as? String
+
         // Create video player
         let player = FullscreenVideoPlayer(
             playerId: playerId,
@@ -82,7 +88,9 @@ public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
             exitOnEnd: exitOnEnd,
             loopOnEnd: loopOnEnd,
             pipEnabled: pipEnabled,
-            showControls: showControls
+            showControls: showControls,
+            fairplayCertificateUrl: fairplayCertificateUrl,
+            fairplayContentKeySpcUrl: fairplayContentKeySpcUrl
         )
 
         player.setupPlayer()
