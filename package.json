@@ -1,6 +1,6 @@
 {
   "name": "@capgo/capacitor-video-player",
-  "version": "8.0.9",
+  "version": "8.0.17",
   "description": "Capacitor plugin to play video in native player",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -46,7 +46,8 @@
     "build": "npm run clean && npm run docgen && tsc && rollup -c rollup.config.mjs",
     "clean": "rimraf ./dist",
     "watch": "tsc --watch",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "check:wiring": "node scripts/check-capacitor-plugin-wiring.mjs"
   },
   "devDependencies": {
     "@capacitor/android": "^8.0.0",
