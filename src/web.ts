@@ -166,6 +166,13 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
       playerId = 'fullscreen';
     }
     if (this._players[playerId]) {
+      if (!this._players[playerId].videoEl) {
+        return Promise.resolve({
+          method: 'play',
+          result: false,
+          message: 'Video element is not initialized for given PlayerId',
+        });
+      }
       await this._players[playerId].videoEl.play();
       return Promise.resolve({ method: 'play', result: true, value: true });
     } else {
@@ -194,7 +201,8 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
       playerId = 'fullscreen';
     }
     if (this._players[playerId]) {
-      if (this._players[playerId].isPlaying) await this._players[playerId].videoEl.pause();
+      if (this._players[playerId].isPlaying && this._players[playerId].videoEl)
+        await this._players[playerId].videoEl.pause();
       return Promise.resolve({ method: 'pause', result: true, value: true });
     } else {
       return Promise.resolve({
@@ -222,7 +230,7 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
       playerId = 'fullscreen';
     }
     if (this._players[playerId]) {
-      const duration: number = this._players[playerId].videoEl.duration;
+      const duration: number = this._players[playerId].videoEl?.duration ?? 0;
       return Promise.resolve({
         method: 'getDuration',
         result: true,
@@ -256,7 +264,7 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
     const rateList: number[] = [0.25, 0.5, 0.75, 1.0, 2.0, 4.0];
     const rate: number = options.rate && rateList.includes(options.rate) ? options.rate : 1.0;
     if (this._players[playerId]) {
-      this._players[playerId].videoEl.playbackRate = rate;
+      if (this._players[playerId].videoEl) this._players[playerId].videoEl.playbackRate = rate;
       return Promise.resolve({
         method: 'setRate',
         result: true,
@@ -288,7 +296,7 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
       playerId = 'fullscreen';
     }
     if (this._players[playerId]) {
-      const rate: number = this._players[playerId].videoEl.playbackRate;
+      const rate: number = this._players[playerId].videoEl?.playbackRate ?? 1.0;
       return Promise.resolve({
         method: 'getRate',
         result: true,
@@ -322,7 +330,7 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
     }
     const volume: number = options.volume ? options.volume : 0.5;
     if (this._players[playerId]) {
-      this._players[playerId].videoEl.volume = volume;
+      if (this._players[playerId].videoEl) this._players[playerId].videoEl.volume = volume;
       return Promise.resolve({
         method: 'setVolume',
         result: true,
@@ -354,7 +362,7 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
       playerId = 'fullscreen';
     }
     if (this._players[playerId]) {
-      const volume: number = this._players[playerId].videoEl.volume;
+      const volume: number = this._players[playerId].videoEl?.volume ?? 1.0;
       return Promise.resolve({
         method: 'getVolume',
         result: true,
@@ -387,7 +395,7 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
     }
     const muted: boolean = options.muted ? options.muted : false;
     if (this._players[playerId]) {
-      this._players[playerId].videoEl.muted = muted;
+      if (this._players[playerId].videoEl) this._players[playerId].videoEl.muted = muted;
       return Promise.resolve({
         method: 'setMuted',
         result: true,
@@ -419,7 +427,7 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
       playerId = 'fullscreen';
     }
     if (this._players[playerId]) {
-      const muted: boolean = this._players[playerId].videoEl.muted;
+      const muted: boolean = this._players[playerId].videoEl?.muted ?? false;
       return Promise.resolve({
         method: 'getMuted',
         result: true,
@@ -452,9 +460,9 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
     }
     let seekTime: number = options.seektime ? options.seektime : 0;
     if (this._players[playerId]) {
-      const duration: number = this._players[playerId].videoEl.duration;
+      const duration: number = this._players[playerId].videoEl?.duration ?? 0;
       seekTime = seekTime <= duration && seekTime >= 0 ? seekTime : duration / 2;
-      this._players[playerId].videoEl.currentTime = seekTime;
+      if (this._players[playerId].videoEl) this._players[playerId].videoEl.currentTime = seekTime;
       return Promise.resolve({
         method: 'setCurrentTime',
         result: true,
@@ -486,7 +494,7 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
       playerId = 'fullscreen';
     }
     if (this._players[playerId]) {
-      const seekTime: number = this._players[playerId].videoEl.currentTime;
+      const seekTime: number = this._players[playerId].videoEl?.currentTime ?? 0;
       return Promise.resolve({
         method: 'getCurrentTime',
         result: true,
@@ -512,7 +520,7 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
           await doc.exitPictureInPicture();
         }
       }
-      if (!this._players[i].videoEl.paused) this._players[i].videoEl.pause();
+      if (this._players[i].videoEl && !this._players[i].videoEl.paused) this._players[i].videoEl.pause();
     }
     return Promise.resolve({
       method: 'stopAllPlayers',
