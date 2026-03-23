@@ -33,7 +33,8 @@ public class VideoPlayer {
         Boolean isTV,
         String playerId,
         Boolean isInternal,
-        Long videoId
+        Long videoId,
+        JSObject drmOptions
     ) {
         FullscreenExoPlayerFragment fsFragment = new FullscreenExoPlayerFragment();
 
@@ -58,6 +59,7 @@ public class VideoPlayer {
         fsFragment.playerId = playerId;
         fsFragment.isInternal = isInternal;
         fsFragment.videoId = videoId;
+        fsFragment.drmOptions = drmOptions;
         return fsFragment;
     }
 

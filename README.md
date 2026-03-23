@@ -369,6 +369,7 @@ Exit player
 | **`accentColor`**     | <code>string</code>                                         | ExoPlayer Progress Bar and Spinner color (Android) by Manuel García Marín (https://github.com/PhantomPainX) Must be a valid hex color code default: #FFFFFF |
 | **`chromecast`**      | <code>boolean</code>                                        | Chromecast enable/disable (Android) by Manuel García Marín (https://github.com/PhantomPainX) default: true                                                  |
 | **`artwork`**         | <code>string</code>                                         | Artwork url to be shown in Chromecast player by Manuel García Marín (https://github.com/PhantomPainX) default: ""                                           |
+| **`drm`**             | <code><a href="#drmoptions">DrmOptions</a></code>           | DRM configuration for protected content (iOS: FairPlay, Android: Widevine)                                                                                  |
 
 
 #### SubTitleOptions
@@ -382,6 +383,37 @@ Exit player
 | Method               | Signature                                    | Description                             |
 | -------------------- | -------------------------------------------- | --------------------------------------- |
 | **getPluginVersion** | () =&gt; Promise&lt;{ version: string; }&gt; | Get the native Capacitor plugin version |
+
+
+#### DrmOptions
+
+| Prop            | Type                                                                | Description                          |
+| --------------- | ------------------------------------------------------------------- | ------------------------------------ |
+| **`fairplay`**  | <code><a href="#fairplaydrmoptions">FairPlayDrmOptions</a></code>   | FairPlay DRM configuration (iOS)     |
+| **`playready`** | <code><a href="#playreadydrmoptions">PlayreadyDrmOptions</a></code> | PlayReady DRM configuration          |
+| **`widevine`**  | <code><a href="#widevinedrmoptions">WidevineDrmOptions</a></code>   | Widevine DRM configuration (Android) |
+
+
+#### FairPlayDrmOptions
+
+| Prop                   | Type                | Description                                                                       |
+| ---------------------- | ------------------- | --------------------------------------------------------------------------------- |
+| **`certificateUrl`**   | <code>string</code> | The URL to fetch the FairPlay certificate                                         |
+| **`contentKeySpcUrl`** | <code>string</code> | The URL to send the SPC and receive the CKC license (FairPlay license server URL) |
+
+
+#### PlayreadyDrmOptions
+
+| Prop                 | Type                | Description                            |
+| -------------------- | ------------------- | -------------------------------------- |
+| **`certificateUrl`** | <code>string</code> | The URL to fetch the PlayReady license |
+
+
+#### WidevineDrmOptions
+
+| Prop                 | Type                | Description                           |
+| -------------------- | ------------------- | ------------------------------------- |
+| **`certificateUrl`** | <code>string</code> | The URL to fetch the Widevine license |
 
 
 #### capVideoPlayerIdOptions

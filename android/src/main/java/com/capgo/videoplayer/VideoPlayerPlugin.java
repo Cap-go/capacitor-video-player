@@ -81,6 +81,7 @@ public class VideoPlayerPlugin extends Plugin {
     private String subtitle = "";
     private String language = "";
     private JSObject subTitleOptions;
+    private JSObject drmOptions;
     private final JSObject ret = new JSObject();
 
     @Override
@@ -218,6 +219,11 @@ public class VideoPlayerPlugin extends Plugin {
                 _artwork = call.getString("artwork");
             }
             artwork = _artwork;
+            JSObject _drmOptions = null;
+            if (call.getData().has("drm")) {
+                _drmOptions = call.getObject("drm");
+            }
+            drmOptions = _drmOptions;
             AddObserversToNotificationCenter();
             Log.v(TAG, "display url: " + url);
             Log.v(TAG, "display subtitle: " + subtitle);
@@ -926,7 +932,8 @@ public class VideoPlayerPlugin extends Plugin {
                     isTV,
                     playerId,
                     false,
-                    null
+                    null,
+                    drmOptions
                 );
             } else {
                 Map<String, Object> info = new HashMap<String, Object>() {
@@ -1091,7 +1098,8 @@ public class VideoPlayerPlugin extends Plugin {
                             isTV,
                             fsPlayerId,
                             true,
-                            videoId
+                            videoId,
+                            null
                         );
                     } else {
                         Toast.makeText(context, "No Video files found ", Toast.LENGTH_SHORT).show();
@@ -1130,7 +1138,8 @@ public class VideoPlayerPlugin extends Plugin {
         Boolean isTV,
         String playerId,
         Boolean isInternal,
-        Long videoId
+        Long videoId,
+        JSObject drmOptions
     ) {
         Log.v(TAG, "§§§§ createFullScreenFragment chromecast: " + chromecast);
 
@@ -1155,7 +1164,8 @@ public class VideoPlayerPlugin extends Plugin {
             isTV,
             playerId,
             isInternal,
-            videoId
+            videoId,
+            drmOptions
         );
         bridge
             .getActivity()

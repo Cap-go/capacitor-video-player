@@ -202,6 +202,10 @@ export interface capVideoPlayerOptions {
    * default: ""
    */
   artwork?: string;
+  /**
+   * DRM configuration for protected content (iOS: FairPlay, Android: Widevine)
+   */
+  drm?: DrmOptions;
 }
 export interface capVideoPlayerIdOptions {
   /**
@@ -308,4 +312,40 @@ export interface SubTitleOptions {
    * @throws An error if the something went wrong
    */
   getPluginVersion(): Promise<{ version: string }>;
+}
+export interface FairPlayDrmOptions {
+  /**
+   * The URL to fetch the FairPlay certificate
+   */
+  certificateUrl?: string;
+  /**
+   * The URL to send the SPC and receive the CKC license (FairPlay license server URL)
+   */
+  contentKeySpcUrl?: string;
+}
+export interface PlayreadyDrmOptions {
+  /**
+   * The URL to fetch the PlayReady license
+   */
+  certificateUrl?: string;
+}
+export interface WidevineDrmOptions {
+  /**
+   * The URL to fetch the Widevine license
+   */
+  certificateUrl?: string;
+}
+export interface DrmOptions {
+  /**
+   * FairPlay DRM configuration (iOS)
+   */
+  fairplay?: FairPlayDrmOptions;
+  /**
+   * PlayReady DRM configuration
+   */
+  playready?: PlayreadyDrmOptions;
+  /**
+   * Widevine DRM configuration (Android)
+   */
+  widevine?: WidevineDrmOptions;
 }

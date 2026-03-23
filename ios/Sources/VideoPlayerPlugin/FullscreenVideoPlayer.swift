@@ -20,8 +20,11 @@ class FullscreenVideoPlayer: NSObject {
     private var onReady: (() -> Void)?
     private var onEnd: (() -> Void)?
     private var onExit: ((Double) -> Void)?
+    private var fairplayCertificateUrl: String?
+    private var fairplayContentKeySpcUrl: String?
+    private var contentKeySession: AVContentKeySession?
 
-    init(playerId: String, url: String, rate: Float, exitOnEnd: Bool, loopOnEnd: Bool, pipEnabled: Bool, showControls: Bool) {
+    init(playerId: String, url: String, rate: Float, exitOnEnd: Bool, loopOnEnd: Bool, pipEnabled: Bool, showControls: Bool, fairplayCertificateUrl: String? = nil, fairplayContentKeySpcUrl: String? = nil) {
         self.playerId = playerId
         self.videoUrl = url
         self.rate = rate
@@ -29,6 +32,8 @@ class FullscreenVideoPlayer: NSObject {
         self.loopOnEnd = loopOnEnd
         self.pipEnabled = pipEnabled
         self.showControls = showControls
+        self.fairplayCertificateUrl = fairplayCertificateUrl
+        self.fairplayContentKeySpcUrl = fairplayContentKeySpcUrl
         super.init()
     }
 
@@ -37,8 +42,17 @@ class FullscreenVideoPlayer: NSObject {
             return
         }
 
+        let asset = AVURLAsset(url: url)
+
+        // Configure FairPlay DRM if certificate URL is provided
+        if let certUrl = fairplayCertificateUrl, !certUrl.isEmpty {
+            let session = AVContentKeySession(keySystem: .fairPlayStreaming)
+            session.setDelegate(self, queue: DispatchQueue.global(qos: .default))
+            session.addContentKeyRecipient(asset)
+            self.contentKeySession = session
+        }
+
         // Create player item with asset
-        let asset = AVAsset(url: url)
         playerItem = AVPlayerItem(asset: asset)
 
         // Create player
@@ -233,5 +247,78 @@ class FullscreenVideoPlayer: NSObject {
 
     deinit {
         cleanup()
+    }
+}
+
+// MARK: - AVContentKeySessionDelegate (FairPlay DRM)
+
+extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
+    func contentKeySession(_ session: AVContentKeySession, didProvide keyRequest: AVContentKeyRequest) {
+        handleFairPlayKeyRequest(keyRequest)
+    }
+
+    func contentKeySession(_ session: AVContentKeySession, didProvideRenewingContentKeyRequest keyRequest: AVContentKeyRequest) {
+        handleFairPlayKeyRequest(keyRequest)
+    }
+
+    private func handleFairPlayKeyRequest(_ keyRequest: AVContentKeyRequest) {
+        guard let certUrlString = fairplayCertificateUrl,
+              let certUrl = URL(string: certUrlString),
+              let spcUrlString = fairplayContentKeySpcUrl,
+              let spcUrl = URL(string: spcUrlString) else {
+            keyRequest.processContentKeyResponseError(
+                NSError(domain: "VideoPlayer", code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Invalid FairPlay DRM configuration"])
+            )
+            return
+        }
+
+        // 1. Fetch the FairPlay certificate
+        URLSession.shared.dataTask(with: certUrl) { certData, _, certError in
+            guard let certData = certData else {
+                keyRequest.processContentKeyResponseError(
+                    certError ?? NSError(domain: "VideoPlayer", code: -2,
+                                        userInfo: [NSLocalizedDescriptionKey: "Failed to fetch FairPlay certificate"])
+                )
+                return
+            }
+
+            // 2. Create SPC (Server Playback Context) using the certificate
+            // contentIdentifier is nil here; override if your license server requires
+            // a specific content ID extracted from the asset URL scheme
+            keyRequest.makeStreamingContentKeyRequestData(
+                forApp: certData,
+                contentIdentifier: nil,
+                options: [AVContentKeyRequestProtocolVersionsKey: [1]]
+            ) { spcData, spcError in
+                guard let spcData = spcData else {
+                    keyRequest.processContentKeyResponseError(
+                        spcError ?? NSError(domain: "VideoPlayer", code: -4,
+                                            userInfo: [NSLocalizedDescriptionKey: "Failed to create FairPlay SPC"])
+                    )
+                    return
+                }
+
+                // 3. Send SPC to the license server and receive the CKC
+                var spcRequest = URLRequest(url: spcUrl)
+                spcRequest.httpMethod = "POST"
+                spcRequest.httpBody = spcData
+                spcRequest.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+
+                URLSession.shared.dataTask(with: spcRequest) { ckcData, _, ckcError in
+                    guard let ckcData = ckcData else {
+                        keyRequest.processContentKeyResponseError(
+                            ckcError ?? NSError(domain: "VideoPlayer", code: -3,
+                                                userInfo: [NSLocalizedDescriptionKey: "Failed to obtain FairPlay CKC"])
+                        )
+                        return
+                    }
+
+                    // 4. Provide the CKC to AVFoundation to decrypt the content
+                    let keyResponse = AVContentKeyResponse(fairPlayStreamingKeyResponseData: ckcData)
+                    keyRequest.processContentKeyResponse(keyResponse)
+                }.resume()
+            }
+        }.resume()
     }
 }
