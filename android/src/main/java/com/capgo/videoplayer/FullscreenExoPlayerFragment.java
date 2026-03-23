@@ -916,6 +916,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
             vType.equals("ogv") ||
             vType.equals("3gp") ||
             vType.equals("flv") ||
+            vType.equals("ytube") ||
             vType.equals("")
         ) {
             mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(uri));
@@ -1183,6 +1184,45 @@ public class FullscreenExoPlayerFragment extends Fragment {
      * @return video type
      */
     private String getVideoType(Uri uri) {
+        // Check host for YouTube-related domains
+        String host = uri.getHost();
+        if (host != null) {
+            String hostLower = host.toLowerCase(Locale.US);
+            if (hostLower.equals("youtube.com") || hostLower.endsWith(".youtube.com") ||
+                hostLower.equals("youtu.be") || hostLower.endsWith(".youtu.be")) {
+                return "ytube";
+            }
+        }
+
+        // Check URL path for HLS/DASH manifest patterns common in YouTube CDN URLs
+        String path = uri.getPath();
+        if (path != null) {
+            String pathLower = path.toLowerCase(Locale.US);
+            if (pathLower.contains("/hls_playlist") || pathLower.contains("/hls_manifest")) {
+                return "m3u8";
+            }
+            if (pathLower.contains("/dash_playlist") || pathLower.contains("/dash_manifest")) {
+                return "mpd";
+            }
+        }
+
+        // Check the mime query parameter present in YouTube CDN stream URLs
+        // e.g. mime=application%2Fx-mpegURL or mime=video%2Fmp4
+        String mimeParam = uri.getQueryParameter("mime");
+        if (mimeParam != null) {
+            String mimeLower = mimeParam.toLowerCase(Locale.US);
+            if (mimeLower.contains("mpegurl") || mimeLower.contains("m3u8")) {
+                return "m3u8";
+            }
+            if (mimeLower.contains("dash+xml")) {
+                return "mpd";
+            }
+            if (mimeLower.contains("mp4") || mimeLower.contains("webm") || mimeLower.contains("ogg") || mimeLower.contains("3gp")) {
+                return ""; // empty string signals progressive format in this codebase
+            }
+        }
+
+        // Fall back to path-segment based detection
         String ret = null;
         Object obj = uri.getLastPathSegment();
         String lastSegment = (obj == null) ? "" : uri.getLastPathSegment();
