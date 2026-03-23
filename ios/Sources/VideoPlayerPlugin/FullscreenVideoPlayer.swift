@@ -283,15 +283,21 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
                 return
             }
 
-            do {
-                // 2. Create SPC (Server Playback Context) using the certificate
-                // contentIdentifier is nil here; override if your license server requires
-                // a specific content ID extracted from the asset URL scheme
-                let spcData = try keyRequest.makeStreamingContentKeyRequestData(
-                    forApp: certData,
-                    contentIdentifier: nil,
-                    options: [AVContentKeyRequestProtocolVersionsKey: [1]]
-                )
+            // 2. Create SPC (Server Playback Context) using the certificate
+            // contentIdentifier is nil here; override if your license server requires
+            // a specific content ID extracted from the asset URL scheme
+            keyRequest.makeStreamingContentKeyRequestData(
+                forApp: certData,
+                contentIdentifier: nil,
+                options: [AVContentKeyRequestProtocolVersionsKey: [1]]
+            ) { spcData, spcError in
+                guard let spcData = spcData else {
+                    keyRequest.processContentKeyResponseError(
+                        spcError ?? NSError(domain: "VideoPlayer", code: -4,
+                                            userInfo: [NSLocalizedDescriptionKey: "Failed to create FairPlay SPC"])
+                    )
+                    return
+                }
 
                 // 3. Send SPC to the license server and receive the CKC
                 var spcRequest = URLRequest(url: spcUrl)
@@ -312,8 +318,6 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
                     let keyResponse = AVContentKeyResponse(fairPlayStreamingKeyResponseData: ckcData)
                     keyRequest.processContentKeyResponse(keyResponse)
                 }.resume()
-            } catch {
-                keyRequest.processContentKeyResponseError(error)
             }
         }.resume()
     }
