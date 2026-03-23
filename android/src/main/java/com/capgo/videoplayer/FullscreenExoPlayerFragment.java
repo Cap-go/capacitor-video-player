@@ -1188,8 +1188,12 @@ public class FullscreenExoPlayerFragment extends Fragment {
         String host = uri.getHost();
         if (host != null) {
             String hostLower = host.toLowerCase(Locale.US);
-            if (hostLower.equals("youtube.com") || hostLower.endsWith(".youtube.com") ||
-                hostLower.equals("youtu.be") || hostLower.endsWith(".youtu.be")) {
+            if (
+                hostLower.equals("youtube.com") ||
+                hostLower.endsWith(".youtube.com") ||
+                hostLower.equals("youtu.be") ||
+                hostLower.endsWith(".youtu.be")
+            ) {
                 return "ytube";
             }
         }
