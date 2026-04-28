@@ -14,7 +14,6 @@ class FullscreenVideoPlayer: NSObject {
     private var pipEnabled: Bool
     private var showControls: Bool
     private var chromecast: Bool
-    private var chromecastReceiverAppId: String?
     private var title: String?
     private var smallTitle: String?
     private var artwork: String?
@@ -39,7 +38,6 @@ class FullscreenVideoPlayer: NSObject {
         pipEnabled: Bool,
         showControls: Bool,
         chromecast: Bool,
-        chromecastReceiverAppId: String? = nil,
         title: String? = nil,
         smallTitle: String? = nil,
         artwork: String? = nil,
@@ -54,7 +52,6 @@ class FullscreenVideoPlayer: NSObject {
         self.pipEnabled = pipEnabled
         self.showControls = showControls
         self.chromecast = chromecast
-        self.chromecastReceiverAppId = chromecastReceiverAppId
         self.title = title
         self.smallTitle = smallTitle
         self.artwork = artwork
@@ -106,7 +103,6 @@ class FullscreenVideoPlayer: NSObject {
         }
 
         castController = VideoPlayerCastController(
-            receiverAppId: chromecastReceiverAppId,
             videoUrl: videoUrl,
             title: title,
             smallTitle: smallTitle,

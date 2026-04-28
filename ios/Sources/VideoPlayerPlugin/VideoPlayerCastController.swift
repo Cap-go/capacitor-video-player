@@ -7,7 +7,6 @@ import UIKit
 import GoogleCast
 
 final class VideoPlayerCastController: NSObject {
-    private let receiverAppId: String?
     private let videoUrl: String
     private let title: String?
     private let smallTitle: String?
@@ -33,8 +32,7 @@ final class VideoPlayerCastController: NSObject {
         return GCKCastContext.sharedInstance().sessionManager.currentCastSession?.remoteMediaClient
     }
 
-    init(receiverAppId: String?, videoUrl: String, title: String?, smallTitle: String?, artwork: String?) {
-        self.receiverAppId = receiverAppId
+    init(videoUrl: String, title: String?, smallTitle: String?, artwork: String?) {
         self.videoUrl = videoUrl
         self.title = title
         self.smallTitle = smallTitle
@@ -48,7 +46,7 @@ final class VideoPlayerCastController: NSObject {
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self,
-                  Self.configureCastContext(receiverAppId: self.receiverAppId) else {
+                  Self.configureCastContext() else {
                 return
             }
 
@@ -170,35 +168,19 @@ final class VideoPlayerCastController: NSObject {
         return true
     }
 
-    private static func configureCastContext(receiverAppId: String?) -> Bool {
+    private static func configureCastContext() -> Bool {
         guard Thread.isMainThread else {
             return false
         }
 
         if GCKCastContext.isSharedInstanceInitialized() {
-            return configuredReceiverAppId == resolvedReceiverAppId(receiverAppId)
+            return true
         }
 
-        let appId = resolvedReceiverAppId(receiverAppId)
-
-        let criteria = GCKDiscoveryCriteria(applicationID: appId)
+        let criteria = GCKDiscoveryCriteria(applicationID: kGCKDefaultMediaReceiverApplicationID)
         let options = GCKCastOptions(discoveryCriteria: criteria)
         var error: GCKError?
-        let configured = GCKCastContext.setSharedInstanceWith(options, error: &error)
-        if configured {
-            configuredReceiverAppId = appId
-        }
-        return configured
-    }
-
-    private static var configuredReceiverAppId: String?
-
-    private static func resolvedReceiverAppId(_ receiverAppId: String?) -> String {
-        let trimmedReceiverAppId = receiverAppId?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let trimmedReceiverAppId = trimmedReceiverAppId, !trimmedReceiverAppId.isEmpty {
-            return trimmedReceiverAppId
-        }
-        return kGCKDefaultMediaReceiverApplicationID
+        return GCKCastContext.setSharedInstanceWith(options, error: &error)
     }
 
     private func addCastButton(to playerViewController: AVPlayerViewController) {
@@ -383,8 +365,7 @@ final class VideoPlayerCastController {
         return false
     }
 
-    init(receiverAppId: String?, videoUrl: String, title: String?, smallTitle: String?, artwork: String?) {
-        _ = receiverAppId
+    init(videoUrl: String, title: String?, smallTitle: String?, artwork: String?) {
         _ = videoUrl
         _ = title
         _ = smallTitle

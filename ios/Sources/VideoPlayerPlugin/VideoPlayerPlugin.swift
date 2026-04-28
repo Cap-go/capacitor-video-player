@@ -76,7 +76,6 @@ extension VideoPlayerPlugin {
         let pipEnabled = call.getBool("pipEnabled") ?? true
         let showControls = call.getBool("showControls") ?? true
         let chromecast = call.getBool("chromecast") ?? true
-        let chromecastReceiverAppId = call.getString("chromecastReceiverAppId")
         let title = call.getString("title")
         let smallTitle = call.getString("smallTitle")
         let artwork = call.getString("artwork")
@@ -97,7 +96,6 @@ extension VideoPlayerPlugin {
             pipEnabled: pipEnabled,
             showControls: showControls,
             chromecast: chromecast,
-            chromecastReceiverAppId: chromecastReceiverAppId,
             title: title,
             smallTitle: smallTitle,
             artwork: artwork,

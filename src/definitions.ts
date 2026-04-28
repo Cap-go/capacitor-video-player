@@ -198,11 +198,6 @@ export interface capVideoPlayerOptions {
    */
   chromecast?: boolean;
   /**
-   * iOS Chromecast receiver application ID.
-   * Defaults to the Google Cast default media receiver when omitted.
-   */
-  chromecastReceiverAppId?: string;
-  /**
    * Artwork url to be shown in Chromecast player (iOS, Android)
    * by Manuel García Marín (https://github.com/PhantomPainX)
    * default: ""
