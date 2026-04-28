@@ -1354,7 +1354,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                         };
                         CastButtonFactory.setUpMediaRouteButton(context, mediaRouteButton);
 
-                        if (artwork != "") {
+                        if (hasArtwork()) {
                             new setCastImage().execute();
                         }
 
@@ -1451,10 +1451,14 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
     private MediaMetadata buildCastMediaMetadata() {
         MediaMetadata.Builder metadataBuilder = new MediaMetadata.Builder().setTitle(title).setSubtitle(smallTitle);
-        if (artwork != "") {
+        if (hasArtwork()) {
             metadataBuilder.setMediaType(MediaMetadata.MEDIA_TYPE_MOVIE).setArtworkUri(Uri.parse(artwork));
         }
         return metadataBuilder.build();
+    }
+
+    private boolean hasArtwork() {
+        return artwork != null && !artwork.isEmpty();
     }
 
     private String getMediaItemMimeType(Uri mediaUri) {
