@@ -220,7 +220,10 @@ private extension VideoPlayerCastController {
             return
         }
 
-        let overlayView = playerViewController.view
+        guard let overlayView = playerViewController.view else {
+            return
+        }
+
         overlayView.isUserInteractionEnabled = true
         let button = GCKUICastButton(frame: .zero)
         button.translatesAutoresizingMaskIntoConstraints = false
