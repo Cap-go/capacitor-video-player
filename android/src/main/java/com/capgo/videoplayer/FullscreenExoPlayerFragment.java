@@ -188,7 +188,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private MediaRouteButton mediaRouteButton;
     private CastContext castContext;
     private CastPlayer castPlayer;
-    private MediaItem mediaItem;
     private MediaRouter mRouter;
     private MediaRouter.Callback mCallback = new EmptyCallback();
     private MediaRouteSelector mSelector;
@@ -1355,23 +1354,9 @@ public class FullscreenExoPlayerFragment extends Fragment {
                         };
                         CastButtonFactory.setUpMediaRouteButton(context, mediaRouteButton);
 
-                        MediaMetadata movieMetadata;
                         if (artwork != "") {
-                            movieMetadata = new MediaMetadata.Builder()
-                                .setTitle(title)
-                                .setSubtitle(smallTitle)
-                                .setMediaType(MediaMetadata.MEDIA_TYPE_MOVIE)
-                                .setArtworkUri(Uri.parse(artwork))
-                                .build();
                             new setCastImage().execute();
-                        } else {
-                            movieMetadata = new MediaMetadata.Builder().setTitle(title).setSubtitle(smallTitle).build();
                         }
-                        mediaItem = new MediaItem.Builder()
-                            .setUri(videoPath)
-                            .setMimeType(MimeTypes.VIDEO_UNKNOWN)
-                            .setMediaMetadata(movieMetadata)
-                            .build();
 
                         castPlayer.setSessionAvailabilityListener(
                             new SessionAvailabilityListener() {
@@ -1379,14 +1364,17 @@ public class FullscreenExoPlayerFragment extends Fragment {
                                 public void onCastSessionAvailable() {
                                     isCastSession = true;
                                     final Long videoPosition = player.getCurrentPosition();
+                                    final boolean shouldPlay = player.getPlayWhenReady();
                                     if (pipEnabled) {
                                         pipBtn.setVisibility(View.GONE);
                                     }
                                     resizeBtn.setVisibility(View.GONE);
                                     player.setPlayWhenReady(false);
                                     cast_image.setVisibility(View.VISIBLE);
-                                    castPlayer.setMediaItem(mediaItem, videoPosition);
                                     styledPlayerView.setPlayer(castPlayer);
+                                    castPlayer.setMediaItem(buildCastMediaItem(), videoPosition);
+                                    castPlayer.setPlayWhenReady(shouldPlay);
+                                    castPlayer.prepare();
                                     styledPlayerView.setControllerShowTimeoutMs(0);
                                     styledPlayerView.setControllerHideOnTouch(false);
                                     //We perform a click because for some weird reason, the layout is black until the user clicks on it
@@ -1397,14 +1385,17 @@ public class FullscreenExoPlayerFragment extends Fragment {
                                 public void onCastSessionUnavailable() {
                                     isCastSession = false;
                                     final Long videoPosition = castPlayer.getCurrentPosition();
+                                    final boolean shouldPlay = castPlayer.getPlayWhenReady();
                                     if (pipEnabled) {
                                         pipBtn.setVisibility(View.VISIBLE);
                                     }
                                     resizeBtn.setVisibility(View.VISIBLE);
                                     cast_image.setVisibility(View.GONE);
+                                    castPlayer.stop();
+                                    castPlayer.clearMediaItems();
                                     styledPlayerView.setPlayer(player);
-                                    player.setPlayWhenReady(true);
                                     player.seekTo(videoPosition);
+                                    player.setPlayWhenReady(shouldPlay);
                                     styledPlayerView.setControllerShowTimeoutMs(3000);
                                     styledPlayerView.setControllerHideOnTouch(true);
                                 }
@@ -1418,7 +1409,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                                     Map<String, Object> info = new HashMap<String, Object>() {
                                         {
                                             put("fromPlayerId", playerId);
-                                            put("currentTime", String.valueOf(player.getCurrentPosition() / 1000));
+                                            put("currentTime", String.valueOf(castPlayer.getCurrentPosition() / 1000));
                                         }
                                     };
                                     switch (state) {
@@ -1448,6 +1439,49 @@ public class FullscreenExoPlayerFragment extends Fragment {
     }
 
     private final class EmptyCallback extends MediaRouter.Callback {}
+
+    private MediaItem buildCastMediaItem() {
+        Uri castUri = uri != null ? uri : Uri.parse(videoPath);
+        return buildMediaItem(castUri)
+            .buildUpon()
+            .setMimeType(getMediaItemMimeType(castUri))
+            .setMediaMetadata(buildCastMediaMetadata())
+            .build();
+    }
+
+    private MediaMetadata buildCastMediaMetadata() {
+        MediaMetadata.Builder metadataBuilder = new MediaMetadata.Builder().setTitle(title).setSubtitle(smallTitle);
+        if (artwork != "") {
+            metadataBuilder.setMediaType(MediaMetadata.MEDIA_TYPE_MOVIE).setArtworkUri(Uri.parse(artwork));
+        }
+        return metadataBuilder.build();
+    }
+
+    private String getMediaItemMimeType(Uri mediaUri) {
+        String mediaType = vType != null ? vType : getVideoType(mediaUri);
+        switch (mediaType) {
+            case "dash":
+            case "mpd":
+                return MimeTypes.APPLICATION_MPD;
+            case "m3u8":
+                return MimeTypes.APPLICATION_M3U8;
+            case "ism":
+                return MimeTypes.APPLICATION_SS;
+            case "webm":
+                return MimeTypes.VIDEO_WEBM;
+            case "ogv":
+                return "video/ogg";
+            case "3gp":
+                return "video/3gpp";
+            case "flv":
+                return "video/x-flv";
+            case "mp4":
+            case "ytube":
+            case "":
+            default:
+                return MimeTypes.VIDEO_MP4;
+        }
+    }
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
