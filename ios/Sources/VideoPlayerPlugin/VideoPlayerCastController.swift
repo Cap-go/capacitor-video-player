@@ -7,6 +7,15 @@ import UIKit
 import GoogleCast
 
 final class VideoPlayerCastController: NSObject {
+    private enum PendingCastCommand {
+        case play
+        case pause
+        case seek(Double)
+        case volume(Float)
+        case muted(Bool)
+        case rate(Float)
+    }
+
     private let videoUrl: String
     private let title: String?
     private let smallTitle: String?
@@ -15,7 +24,10 @@ final class VideoPlayerCastController: NSObject {
     private weak var player: AVPlayer?
     private weak var playerViewController: AVPlayerViewController?
     private weak var castButton: GCKUICastButton?
+    private var castOverlayViewController: UIViewController?
+    private var didCreateCastOverlayViewController = false
     private var mediaLoadRequest: GCKRequest?
+    private var pendingCastCommands: [PendingCastCommand] = []
     private var isLoadedOnCast = false
     private var isLoadingOnCast = false
     private var localWasPlaying = false
@@ -44,7 +56,7 @@ final class VideoPlayerCastController: NSObject {
         self.playerViewController = playerViewController
         self.player = player
 
-        DispatchQueue.main.async { [weak self] in
+        let attachOnMain = { [weak self] in
             guard let self = self,
                   Self.configureCastContext() else {
                 return
@@ -54,6 +66,12 @@ final class VideoPlayerCastController: NSObject {
             self.addCastButton(to: playerViewController)
             self.loadMediaIfCastSessionAvailable()
         }
+
+        if Thread.isMainThread {
+            attachOnMain()
+        } else {
+            DispatchQueue.main.async(execute: attachOnMain)
+        }
     }
 
     func detach(stopRemoteMedia: Bool) {
@@ -62,6 +80,7 @@ final class VideoPlayerCastController: NSObject {
         }
         isDetached = true
         clearMediaLoadRequest()
+        pendingCastCommands.removeAll()
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self,
@@ -76,6 +95,11 @@ final class VideoPlayerCastController: NSObject {
             GCKCastContext.sharedInstance().sessionManager.remove(self)
             self.castButton?.removeFromSuperview()
             self.castButton = nil
+            if self.didCreateCastOverlayViewController {
+                self.playerViewController?.customOverlayViewController = nil
+            }
+            self.castOverlayViewController = nil
+            self.didCreateCastOverlayViewController = false
             self.player = nil
             self.playerViewController = nil
             self.isLoadedOnCast = false
@@ -88,7 +112,7 @@ final class VideoPlayerCastController: NSObject {
             return false
         }
         guard isLoadedOnCast else {
-            return isLoadingOnCast
+            return enqueuePendingCastCommand(.play)
         }
         remoteMediaClient.play()
         return true
@@ -99,15 +123,18 @@ final class VideoPlayerCastController: NSObject {
             return false
         }
         guard isLoadedOnCast else {
-            return isLoadingOnCast
+            return enqueuePendingCastCommand(.pause)
         }
         remoteMediaClient.pause()
         return true
     }
 
     func setCurrentTime(_ time: Double) -> Bool {
-        guard let remoteMediaClient = remoteMediaClient, isLoadedOnCast else {
-            return isLoadingOnCast
+        guard let remoteMediaClient = remoteMediaClient else {
+            return false
+        }
+        guard isLoadedOnCast else {
+            return enqueuePendingCastCommand(.seek(time))
         }
         let options = GCKMediaSeekOptions()
         options.interval = time
@@ -137,8 +164,11 @@ final class VideoPlayerCastController: NSObject {
     }
 
     func setVolume(_ volume: Float) -> Bool {
-        guard let remoteMediaClient = remoteMediaClient, isLoadedOnCast else {
-            return isLoadingOnCast
+        guard let remoteMediaClient = remoteMediaClient else {
+            return false
+        }
+        guard isLoadedOnCast else {
+            return enqueuePendingCastCommand(.volume(volume))
         }
         remoteMediaClient.setStreamVolume(volume)
         return true
@@ -149,8 +179,11 @@ final class VideoPlayerCastController: NSObject {
     }
 
     func setMuted(_ muted: Bool) -> Bool {
-        guard let remoteMediaClient = remoteMediaClient, isLoadedOnCast else {
-            return isLoadingOnCast
+        guard let remoteMediaClient = remoteMediaClient else {
+            return false
+        }
+        guard isLoadedOnCast else {
+            return enqueuePendingCastCommand(.muted(muted))
         }
         remoteMediaClient.setStreamMuted(muted)
         return true
@@ -161,14 +194,19 @@ final class VideoPlayerCastController: NSObject {
     }
 
     func setRate(_ rate: Float) -> Bool {
-        guard let remoteMediaClient = remoteMediaClient, isLoadedOnCast else {
-            return isLoadingOnCast
+        guard let remoteMediaClient = remoteMediaClient else {
+            return false
+        }
+        guard isLoadedOnCast else {
+            return enqueuePendingCastCommand(.rate(rate))
         }
         remoteMediaClient.setPlaybackRate(rate)
         return true
     }
+}
 
-    private static func configureCastContext() -> Bool {
+private extension VideoPlayerCastController {
+    static func configureCastContext() -> Bool {
         guard Thread.isMainThread else {
             return false
         }
@@ -177,18 +215,35 @@ final class VideoPlayerCastController: NSObject {
             return true
         }
 
+        // This plugin intentionally uses the default media receiver.
         let criteria = GCKDiscoveryCriteria(applicationID: kGCKDefaultMediaReceiverApplicationID)
         let options = GCKCastOptions(discoveryCriteria: criteria)
         var error: GCKError?
         return GCKCastContext.setSharedInstanceWith(options, error: &error)
     }
 
-    private func addCastButton(to playerViewController: AVPlayerViewController) {
-        guard castButton == nil,
-              let overlayView = playerViewController.contentOverlayView else {
+    func addCastButton(to playerViewController: AVPlayerViewController) {
+        guard castButton == nil else {
             return
         }
 
+        let overlayViewController: UIViewController
+        if let currentOverlayViewController = playerViewController.customOverlayViewController {
+            overlayViewController = currentOverlayViewController
+        } else {
+            overlayViewController = UIViewController()
+            overlayViewController.view.backgroundColor = .clear
+            overlayViewController.view.isUserInteractionEnabled = true
+            playerViewController.customOverlayViewController = overlayViewController
+            castOverlayViewController = overlayViewController
+            didCreateCastOverlayViewController = true
+        }
+
+        guard let overlayView = overlayViewController.view else {
+            return
+        }
+
+        overlayView.isUserInteractionEnabled = true
         let button = GCKUICastButton(frame: .zero)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.tintColor = .white
@@ -208,7 +263,7 @@ final class VideoPlayerCastController: NSObject {
         castButton = button
     }
 
-    private func loadMediaIfCastSessionAvailable() {
+    func loadMediaIfCastSessionAvailable() {
         guard let remoteMediaClient = remoteMediaClient,
               let mediaInfo = makeMediaInformation() else {
             return
@@ -230,7 +285,75 @@ final class VideoPlayerCastController: NSObject {
         mediaLoadRequest = request
     }
 
-    private func makeMediaInformation() -> GCKMediaInformation? {
+    func enqueuePendingCastCommand(_ command: PendingCastCommand) -> Bool {
+        guard isLoadingOnCast else {
+            return false
+        }
+
+        pendingCastCommands.append(command)
+        if pendingCastCommands.count > 20 {
+            pendingCastCommands.removeFirst(pendingCastCommands.count - 20)
+        }
+        return true
+    }
+
+    func flushPendingCastCommands() {
+        guard let remoteMediaClient = remoteMediaClient,
+              isLoadedOnCast else {
+            pendingCastCommands.removeAll()
+            return
+        }
+
+        let commands = pendingCastCommands
+        pendingCastCommands.removeAll()
+        for command in commands {
+            apply(command, to: remoteMediaClient)
+        }
+    }
+
+    func apply(_ command: PendingCastCommand, to remoteMediaClient: GCKRemoteMediaClient) {
+        switch command {
+        case .play:
+            remoteMediaClient.play()
+        case .pause:
+            remoteMediaClient.pause()
+        case .seek(let time):
+            let options = GCKMediaSeekOptions()
+            options.interval = time
+            options.relative = false
+            options.resumeState = .unchanged
+            remoteMediaClient.seek(with: options)
+        case .volume(let volume):
+            remoteMediaClient.setStreamVolume(volume)
+        case .muted(let muted):
+            remoteMediaClient.setStreamMuted(muted)
+        case .rate(let rate):
+            remoteMediaClient.setPlaybackRate(rate)
+        }
+    }
+
+    func applyPendingCastCommandsToLocalPlayer() {
+        let commands = pendingCastCommands
+        pendingCastCommands.removeAll()
+        for command in commands {
+            switch command {
+            case .play:
+                player?.play()
+            case .pause:
+                player?.pause()
+            case .seek(let time):
+                player?.seek(to: CMTime(seconds: time, preferredTimescale: 600))
+            case .volume(let volume):
+                player?.volume = volume
+            case .muted(let muted):
+                player?.isMuted = muted
+            case .rate(let rate):
+                player?.rate = rate
+            }
+        }
+    }
+
+    func makeMediaInformation() -> GCKMediaInformation? {
         guard let url = URL(string: videoUrl) else {
             return nil
         }
@@ -257,7 +380,7 @@ final class VideoPlayerCastController: NSObject {
         return builder.build()
     }
 
-    private func contentType(for url: URL) -> String {
+    func contentType(for url: URL) -> String {
         switch url.pathExtension.lowercased() {
         case "m3u8":
             return "application/x-mpegURL"
@@ -276,7 +399,7 @@ final class VideoPlayerCastController: NSObject {
         }
     }
 
-    private func resumeLocalPlayback(from session: GCKSession) {
+    func resumeLocalPlayback(from session: GCKSession) {
         guard !isDetached,
               isLoadedOnCast else {
             return
@@ -288,37 +411,51 @@ final class VideoPlayerCastController: NSObject {
             remoteMediaClient?.mediaStatus?.playerState == .buffering
 
         isLoadedOnCast = false
+        isLoadingOnCast = false
+        clearMediaLoadRequest()
+        pendingCastCommands.removeAll()
         let seekTime = CMTime(seconds: position, preferredTimescale: 600)
         player?.seek(to: seekTime) { [weak self] _ in
-            if shouldResume || self?.localWasPlaying == true {
+            if shouldResume {
                 self?.player?.play()
             }
         }
     }
 
-    private func clearMediaLoadRequest() {
+    func clearMediaLoadRequest() {
         mediaLoadRequest?.delegate = nil
         mediaLoadRequest = nil
     }
 
-    private func completeMediaLoadRequest(_ request: GCKRequest) {
+    func completeMediaLoadRequest(_ request: GCKRequest) {
         guard request === mediaLoadRequest else {
             return
         }
         clearMediaLoadRequest()
         isLoadingOnCast = false
         isLoadedOnCast = true
+        flushPendingCastCommands()
     }
 
-    private func failMediaLoadRequest(_ request: GCKRequest) {
+    func failMediaLoadRequest(_ request: GCKRequest) {
         guard request === mediaLoadRequest else {
             return
         }
+        cancelPendingCastHandoff(resumeLocalIfNeeded: true)
+    }
+
+    func cancelPendingCastHandoff(resumeLocalIfNeeded: Bool) {
         clearMediaLoadRequest()
         isLoadingOnCast = false
         isLoadedOnCast = false
+        if !pendingCastCommands.isEmpty {
+            applyPendingCastCommandsToLocalPlayer()
+            return
+        }
         if localWasPlaying {
             player?.play()
+        } else if resumeLocalIfNeeded {
+            player?.pause()
         }
     }
 }
@@ -333,14 +470,15 @@ extension VideoPlayerCastController: GCKSessionManagerListener {
     }
 
     @objc func sessionManager(_ sessionManager: GCKSessionManager, didEnd session: GCKSession, withError error: Error?) {
-        resumeLocalPlayback(from: session)
+        if isLoadedOnCast {
+            resumeLocalPlayback(from: session)
+        } else if isLoadingOnCast {
+            cancelPendingCastHandoff(resumeLocalIfNeeded: true)
+        }
     }
 
     @objc func sessionManager(_ sessionManager: GCKSessionManager, didFailToStart session: GCKSession, withError error: Error) {
-        isLoadedOnCast = false
-        if localWasPlaying {
-            player?.play()
-        }
+        cancelPendingCastHandoff(resumeLocalIfNeeded: true)
     }
 }
 

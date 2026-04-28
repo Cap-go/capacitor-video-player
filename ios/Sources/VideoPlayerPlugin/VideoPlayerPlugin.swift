@@ -103,13 +103,6 @@ extension VideoPlayerPlugin {
             fairplayContentKeySpcUrl: fairplayContentKeySpcUrl
         )
 
-        player.setupPlayer()
-        configureCallbacks(for: player, playerId: playerId)
-
-        // Store player
-        videoPlayers[playerId] = player
-        currentPlayerId = playerId
-
         // Present player
         DispatchQueue.main.async {
             guard let viewController = self.bridge?.viewController else {
@@ -120,6 +113,13 @@ extension VideoPlayerPlugin {
                 ])
                 return
             }
+
+            player.setupPlayer()
+            self.configureCallbacks(for: player, playerId: playerId)
+
+            // Store player
+            self.videoPlayers[playerId] = player
+            self.currentPlayerId = playerId
 
             player.present(on: viewController) {
                 call.resolve([

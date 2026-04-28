@@ -173,7 +173,7 @@ class FullscreenVideoPlayer: NSObject {
         }
 
         viewController.present(playerVC, animated: true) {
-            self.player?.play()
+            self.play()
             completion()
         }
     }
