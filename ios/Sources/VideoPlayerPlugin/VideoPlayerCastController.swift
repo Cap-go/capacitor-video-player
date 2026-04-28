@@ -24,8 +24,6 @@ final class VideoPlayerCastController: NSObject {
     private weak var player: AVPlayer?
     private weak var playerViewController: AVPlayerViewController?
     private weak var castButton: GCKUICastButton?
-    private var castOverlayViewController: UIViewController?
-    private var didCreateCastOverlayViewController = false
     private var mediaLoadRequest: GCKRequest?
     private var pendingCastCommands: [PendingCastCommand] = []
     private var isLoadedOnCast = false
@@ -95,11 +93,6 @@ final class VideoPlayerCastController: NSObject {
             GCKCastContext.sharedInstance().sessionManager.remove(self)
             self.castButton?.removeFromSuperview()
             self.castButton = nil
-            if self.didCreateCastOverlayViewController {
-                self.playerViewController?.customOverlayViewController = nil
-            }
-            self.castOverlayViewController = nil
-            self.didCreateCastOverlayViewController = false
             self.player = nil
             self.playerViewController = nil
             self.isLoadedOnCast = false
@@ -227,22 +220,7 @@ private extension VideoPlayerCastController {
             return
         }
 
-        let overlayViewController: UIViewController
-        if let currentOverlayViewController = playerViewController.customOverlayViewController {
-            overlayViewController = currentOverlayViewController
-        } else {
-            overlayViewController = UIViewController()
-            overlayViewController.view.backgroundColor = .clear
-            overlayViewController.view.isUserInteractionEnabled = true
-            playerViewController.customOverlayViewController = overlayViewController
-            castOverlayViewController = overlayViewController
-            didCreateCastOverlayViewController = true
-        }
-
-        guard let overlayView = overlayViewController.view else {
-            return
-        }
-
+        let overlayView = playerViewController.view
         overlayView.isUserInteractionEnabled = true
         let button = GCKUICastButton(frame: .zero)
         button.translatesAutoresizingMaskIntoConstraints = false
