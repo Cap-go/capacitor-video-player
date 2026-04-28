@@ -56,6 +56,8 @@ import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.ext.cast.CastPlayer;
+import com.google.android.exoplayer2.ext.cast.DefaultMediaItemConverter;
+import com.google.android.exoplayer2.ext.cast.MediaItemConverter;
 import com.google.android.exoplayer2.ext.cast.SessionAvailabilityListener;
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector;
 import com.google.android.exoplayer2.source.MediaSource;
@@ -79,16 +81,21 @@ import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
 import com.google.android.exoplayer2.util.MimeTypes;
+import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaQueueItem;
+import com.google.android.gms.cast.MediaTrack;
 import com.google.android.gms.cast.framework.CastButtonFactory;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastState;
 import com.google.android.gms.cast.framework.CastStateListener;
+import com.google.android.gms.common.images.WebImage;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -97,6 +104,7 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 public class FullscreenExoPlayerFragment extends Fragment {
 
@@ -995,18 +1003,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         mediaSources[0] = mediaSource;
         String mimeType = getMimeType(sturi);
 
-        // We get the language label from the language code
-        String languageLabel = Locale.forLanguageTag(language).getDisplayLanguage();
-        MediaItem.SubtitleConfiguration subConfig = new MediaItem.SubtitleConfiguration.Builder(sturi)
-            .setMimeType(mimeType)
-            .setUri(sturi)
-            .setId(subTitle)
-            .setLabel(languageLabel)
-            .setRoleFlags(C.ROLE_FLAG_CAPTION)
-            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
-            .setLanguage(language)
-            .build();
-
+        MediaItem.SubtitleConfiguration subConfig = buildSubtitleConfiguration(sturi, mimeType);
         SingleSampleMediaSource subtitleSource = new SingleSampleMediaSource.Factory(dataSourceFactory).createMediaSource(
             subConfig,
             C.TIME_UNSET
@@ -1330,7 +1327,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 public void onComplete(Task<CastContext> task) {
                     if (task.isSuccessful()) {
                         castContext = task.getResult();
-                        castPlayer = new CastPlayer(castContext);
+                        castPlayer = new CastPlayer(castContext, new SubtitleMediaItemConverter());
                         mRouter = MediaRouter.getInstance(context);
                         mSelector = new MediaRouteSelector.Builder()
                             .addControlCategories(
@@ -1362,6 +1359,16 @@ public class FullscreenExoPlayerFragment extends Fragment {
                             new SessionAvailabilityListener() {
                                 @Override
                                 public void onCastSessionAvailable() {
+                                    Uri castUri = getCastUri();
+                                    if (!isNetworkUri(castUri)) {
+                                        Toast.makeText(
+                                            context,
+                                            "Chromecast requires a network-reachable media URL",
+                                            Toast.LENGTH_SHORT
+                                        ).show();
+                                        castContext.getSessionManager().endCurrentSession(false);
+                                        return;
+                                    }
                                     isCastSession = true;
                                     final Long videoPosition = player.getCurrentPosition();
                                     final boolean shouldPlay = player.getPlayWhenReady();
@@ -1372,7 +1379,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                                     player.setPlayWhenReady(false);
                                     cast_image.setVisibility(View.VISIBLE);
                                     styledPlayerView.setPlayer(castPlayer);
-                                    castPlayer.setMediaItem(buildCastMediaItem(), videoPosition);
+                                    castPlayer.setMediaItem(buildCastMediaItem(castUri), videoPosition);
                                     castPlayer.setPlayWhenReady(shouldPlay);
                                     castPlayer.prepare();
                                     styledPlayerView.setControllerShowTimeoutMs(0);
@@ -1383,6 +1390,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
                                 @Override
                                 public void onCastSessionUnavailable() {
+                                    if (!isCastSession) return;
                                     isCastSession = false;
                                     final Long videoPosition = castPlayer.getCurrentPosition();
                                     final boolean shouldPlay = castPlayer.getPlayWhenReady();
@@ -1440,13 +1448,25 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
     private final class EmptyCallback extends MediaRouter.Callback {}
 
-    private MediaItem buildCastMediaItem() {
-        Uri castUri = uri != null ? uri : Uri.parse(videoPath);
-        return buildMediaItem(castUri)
-            .buildUpon()
-            .setMimeType(getMediaItemMimeType(castUri))
-            .setMediaMetadata(buildCastMediaMetadata())
-            .build();
+    private Uri getCastUri() {
+        return uri != null ? uri : Uri.parse(videoPath);
+    }
+
+    private boolean isNetworkUri(Uri mediaUri) {
+        String scheme = mediaUri.getScheme();
+        return "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
+    }
+
+    private MediaItem buildCastMediaItem(Uri castUri) {
+        MediaItem.Builder builder = buildMediaItem(castUri).buildUpon().setMediaMetadata(buildCastMediaMetadata());
+        String mimeType = getMediaItemMimeType(castUri);
+        if (mimeType != null) {
+            builder.setMimeType(mimeType);
+        }
+        if (sturi != null && isNetworkUri(sturi)) {
+            builder.setSubtitleConfigurations(Arrays.asList(buildSubtitleConfiguration(sturi, getMimeType(sturi))));
+        }
+        return builder.build();
     }
 
     private MediaMetadata buildCastMediaMetadata() {
@@ -1459,6 +1479,19 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
     private boolean hasArtwork() {
         return artwork != null && !artwork.isEmpty();
+    }
+
+    private MediaItem.SubtitleConfiguration buildSubtitleConfiguration(Uri subtitleUri, String mimeType) {
+        String languageLabel = Locale.forLanguageTag(language).getDisplayLanguage();
+        return new MediaItem.SubtitleConfiguration.Builder(subtitleUri)
+            .setMimeType(mimeType)
+            .setUri(subtitleUri)
+            .setId(subTitle)
+            .setLabel(languageLabel)
+            .setRoleFlags(C.ROLE_FLAG_CAPTION)
+            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+            .setLanguage(language)
+            .build();
     }
 
     private String getMediaItemMimeType(Uri mediaUri) {
@@ -1480,10 +1513,193 @@ public class FullscreenExoPlayerFragment extends Fragment {
             case "flv":
                 return "video/x-flv";
             case "mp4":
+                return MimeTypes.VIDEO_MP4;
             case "ytube":
             case "":
             default:
-                return MimeTypes.VIDEO_MP4;
+                return null;
+        }
+    }
+
+    private final class SubtitleMediaItemConverter implements MediaItemConverter {
+
+        private static final String KEY_MEDIA_ITEM = "mediaItem";
+        private static final String KEY_PLAYER_CONFIG = "exoPlayerConfig";
+        private static final String KEY_MEDIA_ID = "mediaId";
+        private static final String KEY_URI = "uri";
+        private static final String KEY_TITLE = "title";
+        private static final String KEY_MIME_TYPE = "mimeType";
+        private static final String KEY_DRM_CONFIGURATION = "drmConfiguration";
+        private static final String KEY_UUID = "uuid";
+        private static final String KEY_LICENSE_URI = "licenseUri";
+        private static final String KEY_REQUEST_HEADERS = "requestHeaders";
+
+        private final DefaultMediaItemConverter defaultConverter = new DefaultMediaItemConverter();
+
+        @Override
+        public MediaQueueItem toMediaQueueItem(MediaItem mediaItem) {
+            MediaItem.LocalConfiguration localConfiguration = mediaItem.localConfiguration;
+            if (localConfiguration == null) {
+                throw new IllegalArgumentException("The item must specify its local configuration");
+            }
+
+            MediaInfo.Builder mediaInfoBuilder = new MediaInfo.Builder(getContentId(mediaItem, localConfiguration))
+                .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+                .setContentUrl(localConfiguration.uri.toString())
+                .setMetadata(buildCastMediaInfoMetadata(mediaItem))
+                .setCustomData(buildCastCustomData(mediaItem));
+
+            if (localConfiguration.mimeType != null) {
+                mediaInfoBuilder.setContentType(localConfiguration.mimeType);
+            }
+
+            ArrayList<Long> activeTrackIds = new ArrayList<>();
+            List<MediaTrack> mediaTracks = buildCastSubtitleTracks(localConfiguration.subtitleConfigurations, activeTrackIds);
+            if (!mediaTracks.isEmpty()) {
+                mediaInfoBuilder.setMediaTracks(mediaTracks);
+            }
+
+            MediaQueueItem.Builder mediaQueueItemBuilder = new MediaQueueItem.Builder(mediaInfoBuilder.build());
+            if (!activeTrackIds.isEmpty()) {
+                mediaQueueItemBuilder.setActiveTrackIds(toLongArray(activeTrackIds));
+            }
+            return mediaQueueItemBuilder.build();
+        }
+
+        @Override
+        public MediaItem toMediaItem(MediaQueueItem mediaQueueItem) {
+            return defaultConverter.toMediaItem(mediaQueueItem);
+        }
+
+        private String getContentId(MediaItem mediaItem, MediaItem.LocalConfiguration localConfiguration) {
+            return mediaItem.mediaId.equals(MediaItem.DEFAULT_MEDIA_ID) ? localConfiguration.uri.toString() : mediaItem.mediaId;
+        }
+
+        private com.google.android.gms.cast.MediaMetadata buildCastMediaInfoMetadata(MediaItem mediaItem) {
+            MediaItem.LocalConfiguration localConfiguration = mediaItem.localConfiguration;
+            String mimeType = localConfiguration != null ? localConfiguration.mimeType : null;
+            com.google.android.gms.cast.MediaMetadata metadata = new com.google.android.gms.cast.MediaMetadata(
+                mimeType != null && MimeTypes.isAudio(mimeType)
+                    ? com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MUSIC_TRACK
+                    : com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MOVIE
+            );
+
+            if (mediaItem.mediaMetadata.title != null) {
+                metadata.putString(com.google.android.gms.cast.MediaMetadata.KEY_TITLE, mediaItem.mediaMetadata.title.toString());
+            }
+            if (mediaItem.mediaMetadata.subtitle != null) {
+                metadata.putString(com.google.android.gms.cast.MediaMetadata.KEY_SUBTITLE, mediaItem.mediaMetadata.subtitle.toString());
+            }
+            if (mediaItem.mediaMetadata.artworkUri != null) {
+                metadata.addImage(new WebImage(mediaItem.mediaMetadata.artworkUri));
+            }
+            return metadata;
+        }
+
+        private List<MediaTrack> buildCastSubtitleTracks(
+            List<MediaItem.SubtitleConfiguration> subtitleConfigurations,
+            ArrayList<Long> activeTrackIds
+        ) {
+            ArrayList<MediaTrack> mediaTracks = new ArrayList<>();
+            for (int i = 0; i < subtitleConfigurations.size(); i++) {
+                MediaItem.SubtitleConfiguration subtitleConfiguration = subtitleConfigurations.get(i);
+                if (subtitleConfiguration.uri == null) {
+                    continue;
+                }
+                long trackId = i + 1L;
+                MediaTrack.Builder trackBuilder = new MediaTrack.Builder(trackId, MediaTrack.TYPE_TEXT)
+                    .setContentId(subtitleConfiguration.uri.toString())
+                    .setSubtype(MediaTrack.SUBTYPE_SUBTITLES);
+                if (subtitleConfiguration.mimeType != null) {
+                    trackBuilder.setContentType(subtitleConfiguration.mimeType);
+                }
+                if (subtitleConfiguration.label != null) {
+                    trackBuilder.setName(subtitleConfiguration.label.toString());
+                }
+                if (subtitleConfiguration.language != null) {
+                    trackBuilder.setLanguage(subtitleConfiguration.language);
+                }
+                mediaTracks.add(trackBuilder.build());
+                if ((subtitleConfiguration.selectionFlags & C.SELECTION_FLAG_DEFAULT) != 0) {
+                    activeTrackIds.add(trackId);
+                }
+            }
+            return mediaTracks;
+        }
+
+        private long[] toLongArray(List<Long> values) {
+            long[] result = new long[values.size()];
+            for (int i = 0; i < values.size(); i++) {
+                result[i] = values.get(i);
+            }
+            return result;
+        }
+
+        private JSONObject buildCastCustomData(MediaItem mediaItem) {
+            try {
+                JSONObject customData = new JSONObject();
+                customData.put(KEY_MEDIA_ITEM, buildMediaItemJson(mediaItem));
+                JSONObject playerConfig = buildPlayerConfigJson(mediaItem);
+                if (playerConfig != null) {
+                    customData.put(KEY_PLAYER_CONFIG, playerConfig);
+                }
+                return customData;
+            } catch (JSONException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private JSONObject buildMediaItemJson(MediaItem mediaItem) throws JSONException {
+            MediaItem.LocalConfiguration localConfiguration = mediaItem.localConfiguration;
+            JSONObject json = new JSONObject();
+            json.put(KEY_MEDIA_ID, mediaItem.mediaId);
+            if (mediaItem.mediaMetadata.title != null) {
+                json.put(KEY_TITLE, mediaItem.mediaMetadata.title.toString());
+            }
+            json.put(KEY_URI, localConfiguration.uri.toString());
+            if (localConfiguration.mimeType != null) {
+                json.put(KEY_MIME_TYPE, localConfiguration.mimeType);
+            }
+            if (localConfiguration.drmConfiguration != null) {
+                json.put(KEY_DRM_CONFIGURATION, buildDrmConfigurationJson(localConfiguration.drmConfiguration));
+            }
+            return json;
+        }
+
+        private JSONObject buildDrmConfigurationJson(MediaItem.DrmConfiguration drmConfiguration) throws JSONException {
+            JSONObject json = new JSONObject();
+            json.put(KEY_UUID, drmConfiguration.scheme.toString());
+            json.put(KEY_LICENSE_URI, drmConfiguration.licenseUri.toString());
+            json.put(KEY_REQUEST_HEADERS, new JSONObject(drmConfiguration.licenseRequestHeaders));
+            return json;
+        }
+
+        private JSONObject buildPlayerConfigJson(MediaItem mediaItem) throws JSONException {
+            MediaItem.LocalConfiguration localConfiguration = mediaItem.localConfiguration;
+            if (localConfiguration == null || localConfiguration.drmConfiguration == null) {
+                return null;
+            }
+
+            MediaItem.DrmConfiguration drmConfiguration = localConfiguration.drmConfiguration;
+            String protectionSystem;
+            if (C.WIDEVINE_UUID.equals(drmConfiguration.scheme)) {
+                protectionSystem = "widevine";
+            } else if (C.PLAYREADY_UUID.equals(drmConfiguration.scheme)) {
+                protectionSystem = "playready";
+            } else {
+                return null;
+            }
+
+            JSONObject json = new JSONObject();
+            json.put("withCredentials", false);
+            json.put("protectionSystem", protectionSystem);
+            if (drmConfiguration.licenseUri != null) {
+                json.put("licenseUrl", drmConfiguration.licenseUri.toString());
+            }
+            if (!drmConfiguration.licenseRequestHeaders.isEmpty()) {
+                json.put("headers", new JSONObject(drmConfiguration.licenseRequestHeaders));
+            }
+            return json;
         }
     }
 
