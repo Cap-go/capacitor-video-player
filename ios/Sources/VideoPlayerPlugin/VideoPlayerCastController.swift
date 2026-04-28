@@ -285,7 +285,7 @@ private extension VideoPlayerCastController {
         mediaLoadRequest = request
     }
 
-    func enqueuePendingCastCommand(_ command: PendingCastCommand) -> Bool {
+    private func enqueuePendingCastCommand(_ command: PendingCastCommand) -> Bool {
         guard isLoadingOnCast else {
             return false
         }
@@ -311,7 +311,7 @@ private extension VideoPlayerCastController {
         }
     }
 
-    func apply(_ command: PendingCastCommand, to remoteMediaClient: GCKRemoteMediaClient) {
+    private func apply(_ command: PendingCastCommand, to remoteMediaClient: GCKRemoteMediaClient) {
         switch command {
         case .play:
             remoteMediaClient.play()
