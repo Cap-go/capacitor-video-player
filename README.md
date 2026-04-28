@@ -29,6 +29,50 @@ npm install @capgo/capacitor-video-player
 npx cap sync
 ```
 
+## Supported Features
+
+| Feature                        | iOS | Android | Web |
+| ------------------------------ | --- | ------- | --- |
+| Fullscreen native video player | ✅  | ✅      | ❌  |
+| Embedded web video player      | ❌  | ❌      | ✅  |
+| Picture in Picture             | ✅  | ✅      | ❌  |
+| Subtitles                      | ✅  | ✅      | ✅  |
+| DRM-protected playback         | ✅  | ✅      | ❌  |
+| Chromecast sender playback     | ❌  | ✅      | ❌  |
+
+## Chromecast (Android)
+
+Chromecast is supported on Android in fullscreen mode. Enable it with the `chromecast` option. When a Cast session starts, the plugin loads the same media URL on the receiver, keeps the current playback position, and routes play, pause, seek, and timeline controls through the Cast session.
+
+```ts
+await VideoPlayer.initPlayer({
+  mode: 'fullscreen',
+  playerId: 'main-player',
+  url: 'https://example.com/video.m3u8',
+  title: 'Video title',
+  smallTitle: 'Optional subtitle',
+  artwork: 'https://example.com/artwork.jpg',
+  chromecast: true,
+  showControls: true,
+});
+```
+
+### Chromecast Options
+
+| Option       | Type      | Default | Description                                                |
+| ------------ | --------- | ------- | ---------------------------------------------------------- |
+| `chromecast` | `boolean` | `true`  | Shows the Android Cast button and enables sender playback. |
+| `title`      | `string`  | `""`    | Title shown in the sender controls and receiver metadata.  |
+| `smallTitle` | `string`  | `""`    | Subtitle shown in the sender controls and metadata.        |
+| `artwork`    | `string`  | `""`    | Image URL used for Cast metadata and sender Cast artwork.  |
+
+### Requirements and Notes
+
+- The media URL must be reachable by the Chromecast device, not only by the Android app.
+- Cast support depends on the receiver app and device media support. MP4, HLS, DASH, and SmoothStreaming streams are mapped to Cast-compatible MIME types by the plugin.
+- Widevine DRM metadata is forwarded to the Cast media item. DRM-protected streams may still require a receiver that supports your license server and DRM flow.
+- Request headers used by the Android local player are not automatically available to the Chromecast receiver. Use public URLs, signed URLs, cookies supported by your receiver, or a custom receiver for secured media.
+
 ## API
 
 <docgen-index>
