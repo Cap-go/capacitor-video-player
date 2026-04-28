@@ -313,15 +313,18 @@ private extension VideoPlayerCastController {
         }
     }
 
-    func applyPendingCastCommandsToLocalPlayer() {
+    func applyPendingCastCommandsToLocalPlayer() -> Bool {
+        var didApplyPlaybackCommand = false
         let commands = pendingCastCommands
         pendingCastCommands.removeAll()
         for command in commands {
             switch command {
             case .play:
                 player?.play()
+                didApplyPlaybackCommand = true
             case .pause:
                 player?.pause()
+                didApplyPlaybackCommand = true
             case .seek(let time):
                 player?.seek(to: CMTime(seconds: time, preferredTimescale: 600))
             case .volume(let volume):
@@ -330,8 +333,10 @@ private extension VideoPlayerCastController {
                 player?.isMuted = muted
             case .rate(let rate):
                 player?.rate = rate
+                didApplyPlaybackCommand = true
             }
         }
+        return didApplyPlaybackCommand
     }
 
     func makeMediaInformation() -> GCKMediaInformation? {
@@ -430,7 +435,10 @@ private extension VideoPlayerCastController {
         isLoadingOnCast = false
         isLoadedOnCast = false
         if !pendingCastCommands.isEmpty {
-            applyPendingCastCommandsToLocalPlayer()
+            let didApplyPlaybackCommand = applyPendingCastCommandsToLocalPlayer()
+            if localWasPlaying && !didApplyPlaybackCommand {
+                player?.play()
+            }
             return
         }
         if localWasPlaying {
