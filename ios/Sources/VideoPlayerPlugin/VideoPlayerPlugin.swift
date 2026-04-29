@@ -38,7 +38,9 @@ public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func getPluginVersion(_ call: CAPPluginCall) {
         call.resolve(["version": self.pluginVersion])
     }
+}
 
+extension VideoPlayerPlugin {
     @objc func initPlayer(_ call: CAPPluginCall) {
         guard let playerId = call.getString("playerId") else {
             call.resolve([
@@ -73,6 +75,10 @@ public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         let loopOnEnd = call.getBool("loopOnEnd") ?? false
         let pipEnabled = call.getBool("pipEnabled") ?? true
         let showControls = call.getBool("showControls") ?? true
+        let chromecast = call.getBool("chromecast") ?? true
+        let title = call.getString("title")
+        let smallTitle = call.getString("smallTitle")
+        let artwork = call.getString("artwork")
 
         // Extract FairPlay DRM options if provided
         let drm = call.getObject("drm")
@@ -89,13 +95,43 @@ public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
             loopOnEnd: loopOnEnd,
             pipEnabled: pipEnabled,
             showControls: showControls,
+            chromecast: chromecast,
+            title: title,
+            smallTitle: smallTitle,
+            artwork: artwork,
             fairplayCertificateUrl: fairplayCertificateUrl,
             fairplayContentKeySpcUrl: fairplayContentKeySpcUrl
         )
 
-        player.setupPlayer()
+        // Present player
+        DispatchQueue.main.async {
+            guard let viewController = self.bridge?.viewController else {
+                call.resolve([
+                    "result": false,
+                    "method": "initPlayer",
+                    "message": "Unable to get view controller"
+                ])
+                return
+            }
 
-        // Setup callbacks
+            player.setupPlayer()
+            self.configureCallbacks(for: player, playerId: playerId)
+
+            // Store player
+            self.videoPlayers[playerId] = player
+            self.currentPlayerId = playerId
+
+            player.present(on: viewController) {
+                call.resolve([
+                    "result": true,
+                    "method": "initPlayer",
+                    "value": playerId
+                ])
+            }
+        }
+    }
+
+    private func configureCallbacks(for player: FullscreenVideoPlayer, playerId: String) {
         player.setOnPlay { [weak self] in
             self?.notifyListeners("jeepCapVideoPlayerPlay", data: [
                 "fromPlayerId": playerId,
@@ -133,30 +169,6 @@ public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
                 "dismiss": true,
                 "currentTime": currentTime
             ])
-        }
-
-        // Store player
-        videoPlayers[playerId] = player
-        currentPlayerId = playerId
-
-        // Present player
-        DispatchQueue.main.async {
-            guard let viewController = self.bridge?.viewController else {
-                call.resolve([
-                    "result": false,
-                    "method": "initPlayer",
-                    "message": "Unable to get view controller"
-                ])
-                return
-            }
-
-            player.present(on: viewController) {
-                call.resolve([
-                    "result": true,
-                    "method": "initPlayer",
-                    "value": playerId
-                ])
-            }
         }
     }
 

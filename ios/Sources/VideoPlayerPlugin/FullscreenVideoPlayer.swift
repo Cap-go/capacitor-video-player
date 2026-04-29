@@ -13,6 +13,10 @@ class FullscreenVideoPlayer: NSObject {
     private var loopOnEnd: Bool
     private var pipEnabled: Bool
     private var showControls: Bool
+    private var chromecast: Bool
+    private var title: String?
+    private var smallTitle: String?
+    private var artwork: String?
     private var rate: Float
     private var timeObserver: Any?
     private var onPlay: (() -> Void)?
@@ -23,8 +27,23 @@ class FullscreenVideoPlayer: NSObject {
     private var fairplayCertificateUrl: String?
     private var fairplayContentKeySpcUrl: String?
     private var contentKeySession: AVContentKeySession?
+    private var castController: VideoPlayerCastController?
 
-    init(playerId: String, url: String, rate: Float, exitOnEnd: Bool, loopOnEnd: Bool, pipEnabled: Bool, showControls: Bool, fairplayCertificateUrl: String? = nil, fairplayContentKeySpcUrl: String? = nil) {
+    init(
+        playerId: String,
+        url: String,
+        rate: Float,
+        exitOnEnd: Bool,
+        loopOnEnd: Bool,
+        pipEnabled: Bool,
+        showControls: Bool,
+        chromecast: Bool,
+        title: String? = nil,
+        smallTitle: String? = nil,
+        artwork: String? = nil,
+        fairplayCertificateUrl: String? = nil,
+        fairplayContentKeySpcUrl: String? = nil
+    ) {
         self.playerId = playerId
         self.videoUrl = url
         self.rate = rate
@@ -32,6 +51,10 @@ class FullscreenVideoPlayer: NSObject {
         self.loopOnEnd = loopOnEnd
         self.pipEnabled = pipEnabled
         self.showControls = showControls
+        self.chromecast = chromecast
+        self.title = title
+        self.smallTitle = smallTitle
+        self.artwork = artwork
         self.fairplayCertificateUrl = fairplayCertificateUrl
         self.fairplayContentKeySpcUrl = fairplayContentKeySpcUrl
         super.init()
@@ -66,9 +89,35 @@ class FullscreenVideoPlayer: NSObject {
 
         // Picture in Picture support
         playerViewController?.allowsPictureInPicturePlayback = pipEnabled
+        setupChromecast()
 
         // Setup observers
         setupObservers()
+    }
+
+    private func setupChromecast() {
+        guard chromecast,
+              let playerViewController = playerViewController,
+              let player = player else {
+            return
+        }
+
+        castController = VideoPlayerCastController(
+            videoUrl: videoUrl,
+            title: title,
+            smallTitle: smallTitle,
+            artwork: artwork
+        )
+        castController?.setOnPlay { [weak self] in
+            self?.onPlay?()
+        }
+        castController?.setOnPause { [weak self] in
+            self?.onPause?()
+        }
+        castController?.setOnEnd { [weak self] in
+            self?.handlePlaybackEnded()
+        }
+        castController?.attach(to: playerViewController, player: player)
     }
 
     private func setupObservers() {
@@ -115,7 +164,14 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     @objc private func playerDidFinishPlaying() {
+        handlePlaybackEnded()
+    }
+
+    private func handlePlaybackEnded() {
         if loopOnEnd {
+            if castController?.restartPlayback() == true {
+                return
+            }
             player?.seek(to: .zero)
             player?.play()
         } else if exitOnEnd {
@@ -133,13 +189,14 @@ class FullscreenVideoPlayer: NSObject {
         }
 
         viewController.present(playerVC, animated: true) {
-            self.player?.play()
+            self.play()
             completion()
         }
     }
 
     func dismiss() {
         let currentTime = getCurrentTime()
+        castController?.detach(stopRemoteMedia: true)
         playerViewController?.dismiss(animated: true) { [weak self] in
             self?.cleanup()
             self?.onExit?(currentTime)
@@ -147,6 +204,8 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func cleanup() {
+        castController?.detach(stopRemoteMedia: false)
+        castController = nil
         if let observer = timeObserver {
             player?.removeObserver(self, forKeyPath: "rate")
             player?.removeTimeObserver(observer)
@@ -163,54 +222,91 @@ class FullscreenVideoPlayer: NSObject {
     // MARK: - Playback Control
 
     func play() {
+        if castController?.play() == true {
+            return
+        }
         player?.play()
     }
 
     func pause() {
+        if castController?.pause() == true {
+            return
+        }
         player?.pause()
     }
 
     func isPlaying() -> Bool {
+        if castController?.isCasting == true {
+            return castController?.isPlaying() ?? false
+        }
         guard let player = player else { return false }
         return player.rate > 0
     }
 
     func getDuration() -> Double {
+        if castController?.isCasting == true {
+            return castController?.getDuration() ?? 0
+        }
         guard let duration = playerItem?.duration else { return 0 }
         return CMTimeGetSeconds(duration)
     }
 
     func getCurrentTime() -> Double {
+        if castController?.isCasting == true {
+            return castController?.getCurrentTime() ?? 0
+        }
         guard let currentTime = player?.currentTime() else { return 0 }
         return CMTimeGetSeconds(currentTime)
     }
 
     func setCurrentTime(_ time: Double) {
+        if castController?.setCurrentTime(time) == true {
+            return
+        }
         let cmTime = CMTime(seconds: time, preferredTimescale: 600)
         player?.seek(to: cmTime)
     }
 
     func getVolume() -> Float {
+        if castController?.isCasting == true {
+            return castController?.getVolume() ?? 0
+        }
         return player?.volume ?? 0
     }
 
     func setVolume(_ volume: Float) {
+        if castController?.setVolume(volume) == true {
+            return
+        }
         player?.volume = volume
     }
 
     func getMuted() -> Bool {
+        if castController?.isCasting == true {
+            return castController?.getMuted() ?? false
+        }
         return player?.isMuted ?? false
     }
 
     func setMuted(_ muted: Bool) {
+        if castController?.setMuted(muted) == true {
+            return
+        }
         player?.isMuted = muted
     }
 
     func getRate() -> Float {
+        if castController?.isCasting == true {
+            return castController?.getRate() ?? 0
+        }
         return player?.rate ?? 0
     }
 
     func setRate(_ rate: Float) {
+        if castController?.setRate(rate) == true {
+            self.rate = rate
+            return
+        }
         player?.rate = rate
         self.rate = rate
     }
@@ -278,7 +374,7 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
             guard let certData = certData else {
                 keyRequest.processContentKeyResponseError(
                     certError ?? NSError(domain: "VideoPlayer", code: -2,
-                                        userInfo: [NSLocalizedDescriptionKey: "Failed to fetch FairPlay certificate"])
+                                         userInfo: [NSLocalizedDescriptionKey: "Failed to fetch FairPlay certificate"])
                 )
                 return
             }

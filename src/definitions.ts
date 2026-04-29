@@ -174,12 +174,12 @@ export interface capVideoPlayerOptions {
     [key: string]: string;
   };
   /**
-   * Title shown in the player (Android)
+   * Title shown in the player and Chromecast metadata (iOS, Android)
    * by Manuel García Marín (https://github.com/PhantomPainX)
    */
   title?: string;
   /**
-   * Subtitle shown below the title in the player (Android)
+   * Subtitle shown below the title in the player and Chromecast metadata (iOS, Android)
    * by Manuel García Marín (https://github.com/PhantomPainX)
    */
   smallTitle?: string;
@@ -191,13 +191,14 @@ export interface capVideoPlayerOptions {
    */
   accentColor?: string;
   /**
-   * Chromecast enable/disable (Android)
+   * Chromecast enable/disable (iOS, Android)
+   * iOS requires Google Cast SDK setup and local network Info.plist keys.
    * by Manuel García Marín (https://github.com/PhantomPainX)
    * default: true
    */
   chromecast?: boolean;
   /**
-   * Artwork url to be shown in Chromecast player
+   * Artwork url to be shown in Chromecast player (iOS, Android)
    * by Manuel García Marín (https://github.com/PhantomPainX)
    * default: ""
    */
