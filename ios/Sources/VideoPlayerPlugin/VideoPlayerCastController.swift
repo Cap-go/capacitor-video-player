@@ -24,6 +24,7 @@ final class VideoPlayerCastController: NSObject {
     private weak var player: AVPlayer?
     private weak var playerViewController: AVPlayerViewController?
     private weak var castButton: GCKUICastButton?
+    private weak var castIndicatorLabel: UILabel?
     private weak var observedRemoteMediaClient: GCKRemoteMediaClient?
     private var mediaLoadRequest: GCKRequest?
     private var pendingCastCommands: [PendingCastCommand] = []
@@ -36,6 +37,9 @@ final class VideoPlayerCastController: NSObject {
     private var onPlay: (() -> Void)?
     private var onPause: (() -> Void)?
     private var onEnd: (() -> Void)?
+    private var controlsHideTimer: Timer?
+    private weak var tapGestureRecognizer: UITapGestureRecognizer?
+    private static let overlayAutoHideDuration: TimeInterval = 3.0
 
     var isCasting: Bool {
         return remoteMediaClient != nil && isLoadedOnCast
@@ -68,6 +72,8 @@ final class VideoPlayerCastController: NSObject {
 
             GCKCastContext.sharedInstance().sessionManager.add(self)
             self.addCastButton(to: playerViewController)
+            self.addCastIndicator(to: playerViewController)
+            self.beginObservingPlayerTaps(playerViewController)
             self.loadMediaIfCastSessionAvailable()
         }
 
@@ -98,8 +104,17 @@ final class VideoPlayerCastController: NSObject {
 
             self.stopRemoteMediaObservation()
             GCKCastContext.sharedInstance().sessionManager.remove(self)
+            self.controlsHideTimer?.invalidate()
+            self.controlsHideTimer = nil
+            if let tapRecognizer = self.tapGestureRecognizer,
+               let view = self.playerViewController?.view {
+                view.removeGestureRecognizer(tapRecognizer)
+            }
+            self.tapGestureRecognizer = nil
             self.castButton?.removeFromSuperview()
             self.castButton = nil
+            self.castIndicatorLabel?.removeFromSuperview()
+            self.castIndicatorLabel = nil
             self.player = nil
             self.playerViewController = nil
             self.isLoadedOnCast = false
@@ -277,11 +292,91 @@ private extension VideoPlayerCastController {
         NSLayoutConstraint.activate([
             button.widthAnchor.constraint(equalToConstant: 44),
             button.heightAnchor.constraint(equalToConstant: 44),
-            button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 16),
+            // Position below AVPlayerViewController's top row of controls (Done/X and route picker)
+            // using trailing to stay away from the leading-side dismiss button.
+            button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 60),
             button.trailingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.trailingAnchor, constant: -16)
         ])
 
         castButton = button
+    }
+
+    func addCastIndicator(to playerViewController: AVPlayerViewController) {
+        guard castIndicatorLabel == nil else {
+            return
+        }
+
+        guard let overlayView = playerViewController.view else {
+            return
+        }
+
+        let label = UILabel(frame: .zero)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Casting"
+        label.textColor = .white
+        label.font = UIFont.preferredFont(forTextStyle: .caption1)
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        label.layer.cornerRadius = 10
+        label.clipsToBounds = true
+        label.isHidden = true
+
+        overlayView.addSubview(label)
+
+        if let castButton = castButton {
+            NSLayoutConstraint.activate([
+                label.centerYAnchor.constraint(equalTo: castButton.centerYAnchor),
+                label.trailingAnchor.constraint(equalTo: castButton.leadingAnchor, constant: -8)
+            ])
+        } else {
+            NSLayoutConstraint.activate([
+                label.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 60),
+                label.trailingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.trailingAnchor, constant: -68)
+            ])
+        }
+
+        castIndicatorLabel = label
+    }
+
+    func beginObservingPlayerTaps(_ playerViewController: AVPlayerViewController) {
+        guard let overlayView = playerViewController.view else { return }
+        // Remove any existing recognizer before adding a new one to prevent duplicates.
+        if let existing = tapGestureRecognizer {
+            overlayView.removeGestureRecognizer(existing)
+        }
+        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handlePlayerTap))
+        tapRecognizer.cancelsTouchesInView = false
+        overlayView.addGestureRecognizer(tapRecognizer)
+        self.tapGestureRecognizer = tapRecognizer
+        // Show the overlay immediately; it will auto-hide after the standard controls delay.
+        showOverlayControls()
+    }
+
+    @objc func handlePlayerTap() {
+        showOverlayControls()
+    }
+
+    func showOverlayControls() {
+        castButton?.isHidden = false
+        castIndicatorLabel?.isHidden = !isCasting
+        controlsHideTimer?.invalidate()
+        controlsHideTimer = Timer.scheduledTimer(withTimeInterval: Self.overlayAutoHideDuration, repeats: false) { [weak self] _ in
+            self?.hideOverlayControls()
+        }
+    }
+
+    func hideOverlayControls() {
+        controlsHideTimer = nil
+        let button = castButton
+        let label = castIndicatorLabel
+        UIView.animate(withDuration: 0.3, animations: {
+            button?.alpha = 0
+            label?.alpha = 0
+        }, completion: { _ in
+            button?.isHidden = true
+            label?.isHidden = true
+            button?.alpha = 1
+            label?.alpha = 1
+        })
     }
 
     func loadMediaIfCastSessionAvailable() {
@@ -511,6 +606,10 @@ private extension VideoPlayerCastController {
         isLoadingOnCast = false
         isLoadedOnCast = true
         didNotifyRemoteEnd = false
+        DispatchQueue.main.async { [weak self] in
+            // Reveal the cast indicator and extend the controls visibility window.
+            self?.showOverlayControls()
+        }
         flushPendingCastCommands()
     }
 
