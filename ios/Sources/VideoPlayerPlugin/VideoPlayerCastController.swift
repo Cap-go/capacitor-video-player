@@ -24,6 +24,7 @@ final class VideoPlayerCastController: NSObject {
     private weak var player: AVPlayer?
     private weak var playerViewController: AVPlayerViewController?
     private weak var castButton: GCKUICastButton?
+    private weak var castIndicatorLabel: UILabel?
     private weak var observedRemoteMediaClient: GCKRemoteMediaClient?
     private var mediaLoadRequest: GCKRequest?
     private var pendingCastCommands: [PendingCastCommand] = []
@@ -36,6 +37,7 @@ final class VideoPlayerCastController: NSObject {
     private var onPlay: (() -> Void)?
     private var onPause: (() -> Void)?
     private var onEnd: (() -> Void)?
+    private var controlsVisibilityObserver: NSKeyValueObservation?
 
     var isCasting: Bool {
         return remoteMediaClient != nil && isLoadedOnCast
@@ -68,6 +70,8 @@ final class VideoPlayerCastController: NSObject {
 
             GCKCastContext.sharedInstance().sessionManager.add(self)
             self.addCastButton(to: playerViewController)
+            self.addCastIndicator(to: playerViewController)
+            self.observePlayerControlsVisibility(playerViewController)
             self.loadMediaIfCastSessionAvailable()
         }
 
@@ -98,8 +102,12 @@ final class VideoPlayerCastController: NSObject {
 
             self.stopRemoteMediaObservation()
             GCKCastContext.sharedInstance().sessionManager.remove(self)
+            self.controlsVisibilityObserver?.invalidate()
+            self.controlsVisibilityObserver = nil
             self.castButton?.removeFromSuperview()
             self.castButton = nil
+            self.castIndicatorLabel?.removeFromSuperview()
+            self.castIndicatorLabel = nil
             self.player = nil
             self.playerViewController = nil
             self.isLoadedOnCast = false
@@ -278,10 +286,59 @@ private extension VideoPlayerCastController {
             button.widthAnchor.constraint(equalToConstant: 44),
             button.heightAnchor.constraint(equalToConstant: 44),
             button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 16),
-            button.trailingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.trailingAnchor, constant: -16)
+            // Keep clear of the built-in volume/route buttons.
+            button.leadingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.leadingAnchor, constant: 16)
         ])
 
         castButton = button
+    }
+
+    func addCastIndicator(to playerViewController: AVPlayerViewController) {
+        guard castIndicatorLabel == nil else {
+            return
+        }
+
+        guard let overlayView = playerViewController.view else {
+            return
+        }
+
+        let label = UILabel(frame: .zero)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Casting"
+        label.textColor = .white
+        label.font = UIFont.preferredFont(forTextStyle: .caption1)
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        label.layer.cornerRadius = 10
+        label.clipsToBounds = true
+        label.isHidden = true
+
+        overlayView.addSubview(label)
+
+        if let castButton = castButton {
+            NSLayoutConstraint.activate([
+                label.centerYAnchor.constraint(equalTo: castButton.centerYAnchor),
+                label.leadingAnchor.constraint(equalTo: castButton.trailingAnchor, constant: 8)
+            ])
+        } else {
+            NSLayoutConstraint.activate([
+                label.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 16),
+                label.leadingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.leadingAnchor, constant: 16)
+            ])
+        }
+
+        castIndicatorLabel = label
+    }
+
+    func observePlayerControlsVisibility(_ playerViewController: AVPlayerViewController) {
+        controlsVisibilityObserver?.invalidate()
+        controlsVisibilityObserver = playerViewController.observe(\.showsPlaybackControls, options: [.initial, .new]) { [weak self] controller, _ in
+            self?.updateOverlayVisibility(controlsVisible: controller.showsPlaybackControls)
+        }
+    }
+
+    func updateOverlayVisibility(controlsVisible: Bool) {
+        castButton?.isHidden = !controlsVisible
+        castIndicatorLabel?.isHidden = !controlsVisible || !isCasting
     }
 
     func loadMediaIfCastSessionAvailable() {
@@ -511,6 +568,9 @@ private extension VideoPlayerCastController {
         isLoadingOnCast = false
         isLoadedOnCast = true
         didNotifyRemoteEnd = false
+        DispatchQueue.main.async { [weak self] in
+            self?.castIndicatorLabel?.isHidden = self?.playerViewController?.showsPlaybackControls != true
+        }
         flushPendingCastCommands()
     }
 
