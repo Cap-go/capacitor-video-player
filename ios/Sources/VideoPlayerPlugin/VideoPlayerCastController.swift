@@ -309,6 +309,22 @@ private extension VideoPlayerCastController {
         mediaLoadRequest = request
     }
 
+    func resumeCastSession(_ session: GCKSession) {
+        clearMediaLoadRequest()
+        pendingCastCommands.removeAll()
+        isLoadingOnCast = false
+
+        guard let remoteMediaClient = session.remoteMediaClient else {
+            isLoadedOnCast = false
+            stopRemoteMediaObservation()
+            return
+        }
+
+        observeRemoteMediaClient(remoteMediaClient)
+        isLoadedOnCast = isCurrentVideo(remoteMediaClient.mediaStatus?.mediaInformation)
+        handleRemoteMediaStatus(remoteMediaClient.mediaStatus)
+    }
+
     func observeRemoteMediaClient(_ remoteMediaClient: GCKRemoteMediaClient) {
         if let observedRemoteMediaClient = observedRemoteMediaClient,
            observedRemoteMediaClient === remoteMediaClient {
@@ -426,6 +442,19 @@ private extension VideoPlayerCastController {
         return builder.build()
     }
 
+    func isCurrentVideo(_ mediaInformation: GCKMediaInformation?) -> Bool {
+        guard let mediaInformation = mediaInformation else {
+            return false
+        }
+        if mediaInformation.contentID == videoUrl {
+            return true
+        }
+        guard let expectedUrl = URL(string: videoUrl) else {
+            return false
+        }
+        return mediaInformation.contentURL == expectedUrl
+    }
+
     func contentType(for url: URL) -> String {
         switch url.pathExtension.lowercased() {
         case "m3u8":
@@ -510,10 +539,21 @@ private extension VideoPlayerCastController {
         }
     }
 
+    func shouldHandleRemoteMediaStatus(_ mediaStatus: GCKMediaStatus) -> Bool {
+        if isLoadedOnCast || isLoadingOnCast {
+            return true
+        }
+        guard isCurrentVideo(mediaStatus.mediaInformation) else {
+            return false
+        }
+        isLoadedOnCast = true
+        return true
+    }
+
     func handleRemoteMediaStatus(_ mediaStatus: GCKMediaStatus?) {
         guard !isDetached,
-              isLoadedOnCast || isLoadingOnCast,
-              let mediaStatus = mediaStatus else {
+              let mediaStatus = mediaStatus,
+              shouldHandleRemoteMediaStatus(mediaStatus) else {
             return
         }
 
@@ -554,7 +594,7 @@ extension VideoPlayerCastController: GCKSessionManagerListener {
     }
 
     @objc func sessionManager(_ sessionManager: GCKSessionManager, didResumeSession session: GCKSession) {
-        loadMediaIfCastSessionAvailable()
+        resumeCastSession(session)
     }
 
     @objc func sessionManager(_ sessionManager: GCKSessionManager, didEnd session: GCKSession, withError error: Error?) {
