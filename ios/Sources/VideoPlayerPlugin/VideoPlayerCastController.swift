@@ -39,6 +39,7 @@ final class VideoPlayerCastController: NSObject {
     private var onEnd: (() -> Void)?
     private var controlsHideTimer: Timer?
     private weak var tapGestureRecognizer: UITapGestureRecognizer?
+    private static let overlayAutoHideDuration: TimeInterval = 3.0
 
     var isCasting: Bool {
         return remoteMediaClient != nil && isLoadedOnCast
@@ -338,6 +339,10 @@ private extension VideoPlayerCastController {
 
     func beginObservingPlayerTaps(_ playerViewController: AVPlayerViewController) {
         guard let overlayView = playerViewController.view else { return }
+        // Remove any existing recognizer before adding a new one to prevent duplicates.
+        if let existing = tapGestureRecognizer {
+            overlayView.removeGestureRecognizer(existing)
+        }
         let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handlePlayerTap))
         tapRecognizer.cancelsTouchesInView = false
         overlayView.addGestureRecognizer(tapRecognizer)
@@ -354,7 +359,7 @@ private extension VideoPlayerCastController {
         castButton?.isHidden = false
         castIndicatorLabel?.isHidden = !isCasting
         controlsHideTimer?.invalidate()
-        controlsHideTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+        controlsHideTimer = Timer.scheduledTimer(withTimeInterval: Self.overlayAutoHideDuration, repeats: false) { [weak self] _ in
             self?.hideOverlayControls()
         }
     }
