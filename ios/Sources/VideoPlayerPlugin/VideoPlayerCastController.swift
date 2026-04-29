@@ -24,12 +24,18 @@ final class VideoPlayerCastController: NSObject {
     private weak var player: AVPlayer?
     private weak var playerViewController: AVPlayerViewController?
     private weak var castButton: GCKUICastButton?
+    private weak var observedRemoteMediaClient: GCKRemoteMediaClient?
     private var mediaLoadRequest: GCKRequest?
     private var pendingCastCommands: [PendingCastCommand] = []
     private var isLoadedOnCast = false
     private var isLoadingOnCast = false
     private var localWasPlaying = false
     private var isDetached = false
+    private var lastRemoteIsPlaying: Bool?
+    private var didNotifyRemoteEnd = false
+    private var onPlay: (() -> Void)?
+    private var onPause: (() -> Void)?
+    private var onEnd: (() -> Void)?
 
     var isCasting: Bool {
         return remoteMediaClient != nil && isLoadedOnCast
@@ -90,6 +96,7 @@ final class VideoPlayerCastController: NSObject {
                 self.remoteMediaClient?.stop()
             }
 
+            self.stopRemoteMediaObservation()
             GCKCastContext.sharedInstance().sessionManager.remove(self)
             self.castButton?.removeFromSuperview()
             self.castButton = nil
@@ -196,6 +203,39 @@ final class VideoPlayerCastController: NSObject {
         remoteMediaClient.setPlaybackRate(rate)
         return true
     }
+
+    func restartPlayback() -> Bool {
+        guard let remoteMediaClient = remoteMediaClient,
+              let mediaInfo = makeMediaInformation() else {
+            return false
+        }
+
+        didNotifyRemoteEnd = false
+        isLoadedOnCast = false
+        isLoadingOnCast = true
+        clearMediaLoadRequest()
+
+        let mediaLoadRequestDataBuilder = GCKMediaLoadRequestDataBuilder()
+        mediaLoadRequestDataBuilder.mediaInformation = mediaInfo
+        mediaLoadRequestDataBuilder.autoplay = NSNumber(value: true)
+        mediaLoadRequestDataBuilder.startTime = 0
+        let request = remoteMediaClient.loadMedia(with: mediaLoadRequestDataBuilder.build())
+        request.delegate = self
+        mediaLoadRequest = request
+        return true
+    }
+
+    func setOnPlay(_ callback: @escaping () -> Void) {
+        onPlay = callback
+    }
+
+    func setOnPause(_ callback: @escaping () -> Void) {
+        onPause = callback
+    }
+
+    func setOnEnd(_ callback: @escaping () -> Void) {
+        onEnd = callback
+    }
 }
 
 private extension VideoPlayerCastController {
@@ -250,11 +290,14 @@ private extension VideoPlayerCastController {
             return
         }
 
+        observeRemoteMediaClient(remoteMediaClient)
         let playPosition = player?.currentTime().seconds ?? 0
         localWasPlaying = (player?.rate ?? 0) > 0
         player?.pause()
         isLoadedOnCast = false
         isLoadingOnCast = true
+        lastRemoteIsPlaying = nil
+        didNotifyRemoteEnd = false
         clearMediaLoadRequest()
 
         let mediaLoadRequestDataBuilder = GCKMediaLoadRequestDataBuilder()
@@ -264,6 +307,23 @@ private extension VideoPlayerCastController {
         let request = remoteMediaClient.loadMedia(with: mediaLoadRequestDataBuilder.build())
         request.delegate = self
         mediaLoadRequest = request
+    }
+
+    func observeRemoteMediaClient(_ remoteMediaClient: GCKRemoteMediaClient) {
+        if let observedRemoteMediaClient = observedRemoteMediaClient,
+           observedRemoteMediaClient === remoteMediaClient {
+            return
+        }
+
+        observedRemoteMediaClient?.remove(self)
+        remoteMediaClient.add(self)
+        observedRemoteMediaClient = remoteMediaClient
+    }
+
+    func stopRemoteMediaObservation() {
+        observedRemoteMediaClient?.remove(self)
+        observedRemoteMediaClient = nil
+        lastRemoteIsPlaying = nil
     }
 
     private func enqueuePendingCastCommand(_ command: PendingCastCommand) -> Bool {
@@ -398,6 +458,7 @@ private extension VideoPlayerCastController {
 
         isLoadedOnCast = false
         isLoadingOnCast = false
+        stopRemoteMediaObservation()
         clearMediaLoadRequest()
         pendingCastCommands.removeAll()
         let seekTime = CMTime(seconds: position, preferredTimescale: 600)
@@ -420,6 +481,7 @@ private extension VideoPlayerCastController {
         clearMediaLoadRequest()
         isLoadingOnCast = false
         isLoadedOnCast = true
+        didNotifyRemoteEnd = false
         flushPendingCastCommands()
     }
 
@@ -445,6 +507,43 @@ private extension VideoPlayerCastController {
             player?.play()
         } else if resumeLocalIfNeeded {
             player?.pause()
+        }
+    }
+
+    func handleRemoteMediaStatus(_ mediaStatus: GCKMediaStatus?) {
+        guard !isDetached,
+              isLoadedOnCast || isLoadingOnCast,
+              let mediaStatus = mediaStatus else {
+            return
+        }
+
+        switch mediaStatus.playerState {
+        case .playing, .buffering:
+            didNotifyRemoteEnd = false
+            if lastRemoteIsPlaying != true {
+                DispatchQueue.main.async { [weak self] in
+                    self?.onPlay?()
+                }
+            }
+            lastRemoteIsPlaying = true
+        case .paused:
+            if lastRemoteIsPlaying == true {
+                DispatchQueue.main.async { [weak self] in
+                    self?.onPause?()
+                }
+            }
+            lastRemoteIsPlaying = false
+        case .idle:
+            if mediaStatus.idleReason == .finished,
+               !didNotifyRemoteEnd {
+                didNotifyRemoteEnd = true
+                DispatchQueue.main.async { [weak self] in
+                    self?.onEnd?()
+                }
+            }
+            lastRemoteIsPlaying = false
+        default:
+            break
         }
     }
 }
@@ -482,6 +581,13 @@ extension VideoPlayerCastController: GCKRequestDelegate {
 
     @objc func request(_ request: GCKRequest, didAbortWith abortReason: GCKRequestAbortReason) {
         failMediaLoadRequest(request)
+    }
+}
+
+extension VideoPlayerCastController: GCKRemoteMediaClientListener {
+    @objc(remoteMediaClient:didUpdateMediaStatus:)
+    func remoteMediaClient(_ client: GCKRemoteMediaClient, didUpdate mediaStatus: GCKMediaStatus?) {
+        handleRemoteMediaStatus(mediaStatus)
     }
 }
 
@@ -531,6 +637,16 @@ final class VideoPlayerCastController {
     func setRate(_ rate: Float) -> Bool {
         _ = rate
         return false
+    }
+    func restartPlayback() -> Bool { return false }
+    func setOnPlay(_ callback: @escaping () -> Void) {
+        _ = callback
+    }
+    func setOnPause(_ callback: @escaping () -> Void) {
+        _ = callback
+    }
+    func setOnEnd(_ callback: @escaping () -> Void) {
+        _ = callback
     }
 }
 

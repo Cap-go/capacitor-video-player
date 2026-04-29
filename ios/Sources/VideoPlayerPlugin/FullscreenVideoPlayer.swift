@@ -108,6 +108,15 @@ class FullscreenVideoPlayer: NSObject {
             smallTitle: smallTitle,
             artwork: artwork
         )
+        castController?.setOnPlay { [weak self] in
+            self?.onPlay?()
+        }
+        castController?.setOnPause { [weak self] in
+            self?.onPause?()
+        }
+        castController?.setOnEnd { [weak self] in
+            self?.handlePlaybackEnded()
+        }
         castController?.attach(to: playerViewController, player: player)
     }
 
@@ -155,7 +164,14 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     @objc private func playerDidFinishPlaying() {
+        handlePlaybackEnded()
+    }
+
+    private func handlePlaybackEnded() {
         if loopOnEnd {
+            if castController?.restartPlayback() == true {
+                return
+            }
             player?.seek(to: .zero)
             player?.play()
         } else if exitOnEnd {
