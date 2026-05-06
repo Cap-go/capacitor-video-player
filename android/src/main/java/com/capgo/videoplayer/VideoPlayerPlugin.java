@@ -77,6 +77,7 @@ public class VideoPlayerPlugin extends Plugin {
     private Boolean chromecast = true;
     private String artwork;
     private String url;
+    private String chromecastUrl;
     private String playerId;
     private String subtitle = "";
     private String language = "";
@@ -178,6 +179,11 @@ public class VideoPlayerPlugin extends Plugin {
                 call.resolve(ret);
                 return;
             }
+            String _chromecastUrl = null;
+            if (call.getData().has("chromecastUrl")) {
+                _chromecastUrl = call.getString("chromecastUrl");
+            }
+            chromecastUrl = _chromecastUrl;
             if (call.getData().has("subtitle")) {
                 subtitle = call.getString("subtitle");
             }
@@ -233,6 +239,7 @@ public class VideoPlayerPlugin extends Plugin {
             Log.v(TAG, "smallTitle: " + smallTitle);
             Log.v(TAG, "accentColor: " + accentColor);
             Log.v(TAG, "chromecast: " + chromecast);
+            Log.v(TAG, "chromecastUrl: " + chromecastUrl);
             Log.v(TAG, "artwork: " + artwork);
             if (url.equals("internal") || url.contains("DCIM") || url.contains("Documents")) {
                 // Check for permissions to access media video files
@@ -913,6 +920,7 @@ public class VideoPlayerPlugin extends Plugin {
                 createFullScreenFragment(
                     call,
                     videoPath,
+                    chromecastUrl,
                     videoRate,
                     exitOnEnd,
                     loopOnEnd,
@@ -1079,6 +1087,7 @@ public class VideoPlayerPlugin extends Plugin {
                         createFullScreenFragment(
                             call,
                             videoPath,
+                            chromecastUrl,
                             videoRate,
                             exitOnEnd,
                             loopOnEnd,
@@ -1119,6 +1128,7 @@ public class VideoPlayerPlugin extends Plugin {
     private void createFullScreenFragment(
         final PluginCall call,
         String videoPath,
+        String chromecastUrl,
         Float videoRate,
         Boolean exitOnEnd,
         Boolean loopOnEnd,
@@ -1145,6 +1155,7 @@ public class VideoPlayerPlugin extends Plugin {
 
         fsFragment = implementation.createFullScreenFragment(
             videoPath,
+            chromecastUrl,
             videoRate,
             exitOnEnd,
             loopOnEnd,
