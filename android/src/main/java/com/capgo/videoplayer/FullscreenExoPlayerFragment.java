@@ -54,6 +54,7 @@ import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.MediaMetadata;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
+import com.google.android.exoplayer2.Tracks;
 import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.ext.cast.CastPlayer;
 import com.google.android.exoplayer2.ext.cast.DefaultMediaItemConverter;
@@ -313,6 +314,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                         }
                         linearLayout.setVisibility(View.INVISIBLE);
                         Log.v(TAG, "**** in ExoPlayer.STATE_READY firstReadyToPlay " + firstReadyToPlay);
+                        updateSubtitleButtonVisibility(player.getCurrentTracks());
 
                         if (firstReadyToPlay) {
                             firstReadyToPlay = false;
@@ -371,6 +373,11 @@ public class FullscreenExoPlayerFragment extends Fragment {
                         stateString = "UNKNOWN_STATE             -";
                         break;
                 }
+            }
+
+            @Override
+            public void onTracksChanged(Tracks tracks) {
+                updateSubtitleButtonVisibility(tracks);
             }
         };
 
@@ -802,6 +809,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         }
 
         styledPlayerView.setPlayer(player);
+        updateSubtitleButtonVisibility(player.getCurrentTracks());
 
         MediaSource mediaSource;
         if (!isInternal) {
@@ -840,6 +848,26 @@ public class FullscreenExoPlayerFragment extends Fragment {
         mediaSession.setActive(true);
 
         NotificationCenter.defaultCenter().postNotification("initializePlayer", info);
+    }
+
+    private void updateSubtitleButtonVisibility(Tracks tracks) {
+        if (styledPlayerView == null) return;
+        if (sturi != null) {
+            styledPlayerView.setShowSubtitleButton(true);
+            return;
+        }
+        styledPlayerView.setShowSubtitleButton(hasSupportedTextTrack(tracks));
+    }
+
+    private boolean hasSupportedTextTrack(Tracks tracks) {
+        if (tracks == null) return false;
+        for (Tracks.Group group : tracks.getGroups()) {
+            if (group.getType() != C.TRACK_TYPE_TEXT) continue;
+            for (int i = 0; i < group.length; i++) {
+                if (group.isTrackSupported(i)) return true;
+            }
+        }
+        return false;
     }
 
     private void setSubtitle(boolean transparent) {
