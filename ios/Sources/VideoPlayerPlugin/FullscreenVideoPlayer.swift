@@ -18,6 +18,8 @@ class FullscreenVideoPlayer: NSObject {
     private var smallTitle: String?
     private var artwork: String?
     private var rate: Float
+    private var audioCategory: String?
+    private var didActivateAudioSession: Bool = false
     private var timeObserver: Any?
     private var onPlay: (() -> Void)?
     private var onPause: (() -> Void)?
@@ -42,7 +44,8 @@ class FullscreenVideoPlayer: NSObject {
         smallTitle: String? = nil,
         artwork: String? = nil,
         fairplayCertificateUrl: String? = nil,
-        fairplayContentKeySpcUrl: String? = nil
+        fairplayContentKeySpcUrl: String? = nil,
+        audioCategory: String? = nil
     ) {
         self.playerId = playerId
         self.videoUrl = url
@@ -57,6 +60,7 @@ class FullscreenVideoPlayer: NSObject {
         self.artwork = artwork
         self.fairplayCertificateUrl = fairplayCertificateUrl
         self.fairplayContentKeySpcUrl = fairplayContentKeySpcUrl
+        self.audioCategory = audioCategory
         super.init()
     }
 
@@ -64,6 +68,8 @@ class FullscreenVideoPlayer: NSObject {
         guard let url = URL(string: videoUrl) else {
             return
         }
+
+        configureAudioSession()
 
         let asset = AVURLAsset(url: url)
 
@@ -93,6 +99,48 @@ class FullscreenVideoPlayer: NSObject {
 
         // Setup observers
         setupObservers()
+    }
+
+    private func configureAudioSession() {
+        guard let audioCategory else { return }
+
+        let session = AVAudioSession.sharedInstance()
+        do {
+            switch audioCategory {
+            case "ambient":
+                try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+            case "playback":
+                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            case "moviePlayback":
+                if #available(iOS 13.0, *) {
+                    try session.setCategory(
+                        .playback,
+                        mode: .moviePlayback,
+                        policy: .longFormVideo,
+                        options: [.mixWithOthers]
+                    )
+                } else {
+                    try session.setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
+                }
+            default:
+                return
+            }
+
+            try session.setActive(true)
+            didActivateAudioSession = true
+        } catch {
+            print("Error configuring AVAudioSession: \(error)")
+        }
+    }
+
+    private func deactivateAudioSessionIfNeeded() {
+        guard didActivateAudioSession else { return }
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+            didActivateAudioSession = false
+        } catch {
+            print("Error deactivating AVAudioSession: \(error)")
+        }
     }
 
     private func setupChromecast() {
@@ -217,6 +265,7 @@ class FullscreenVideoPlayer: NSObject {
         player = nil
         playerItem = nil
         playerViewController = nil
+        deactivateAudioSessionIfNeeded()
     }
 
     // MARK: - Playback Control

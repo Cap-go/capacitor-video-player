@@ -79,6 +79,7 @@ extension VideoPlayerPlugin {
         let title = call.getString("title")
         let smallTitle = call.getString("smallTitle")
         let artwork = call.getString("artwork")
+        let audioCategory = call.getString("audioCategory")
 
         // Extract FairPlay DRM options if provided
         let drm = call.getObject("drm")
@@ -100,7 +101,8 @@ extension VideoPlayerPlugin {
             smallTitle: smallTitle,
             artwork: artwork,
             fairplayCertificateUrl: fairplayCertificateUrl,
-            fairplayContentKeySpcUrl: fairplayContentKeySpcUrl
+            fairplayContentKeySpcUrl: fairplayContentKeySpcUrl,
+            audioCategory: audioCategory
         )
 
         // Present player

@@ -145,6 +145,14 @@ export interface capVideoPlayerOptions {
    */
   bkmodeEnabled?: boolean;
   /**
+   * iOS audio session category behavior (iOS).
+   * - "ambient": respects the iPhone silent switch (default)
+   * - "playback": ignores the iPhone silent switch
+   * - "moviePlayback": playback optimized for video and long-form AirPlay
+   * default: "ambient"
+   */
+  audioCategory?: 'ambient' | 'playback' | 'moviePlayback';
+  /**
    * Show Controls Enable (iOS, Android)
    * default: true
    */
