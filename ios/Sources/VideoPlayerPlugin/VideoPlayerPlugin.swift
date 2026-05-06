@@ -29,7 +29,9 @@ public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "stopAllPlayers", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showController", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "isControllerIsFullyVisible", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "exitPlayer", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "exitPlayer", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "hidePlayer", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "showPlayer", returnType: CAPPluginReturnPromise)
     ]
 
     private var videoPlayers: [String: FullscreenVideoPlayer] = [:]
@@ -502,5 +504,58 @@ extension VideoPlayerPlugin {
             "method": "exitPlayer",
             "value": true
         ])
+    }
+
+    @objc func hidePlayer(_ call: CAPPluginCall) {
+        guard let playerId = currentPlayerId,
+              let player = videoPlayers[playerId] else {
+            call.resolve([
+                "result": false,
+                "method": "hidePlayer",
+                "message": "No active player"
+            ])
+            return
+        }
+
+        DispatchQueue.main.async {
+            player.hide {
+                call.resolve([
+                    "result": true,
+                    "method": "hidePlayer",
+                    "value": true
+                ])
+            }
+        }
+    }
+
+    @objc func showPlayer(_ call: CAPPluginCall) {
+        guard let playerId = currentPlayerId,
+              let player = videoPlayers[playerId] else {
+            call.resolve([
+                "result": false,
+                "method": "showPlayer",
+                "message": "No active player"
+            ])
+            return
+        }
+
+        DispatchQueue.main.async {
+            guard let viewController = self.bridge?.viewController else {
+                call.resolve([
+                    "result": false,
+                    "method": "showPlayer",
+                    "message": "Unable to get view controller"
+                ])
+                return
+            }
+
+            player.show(on: viewController) {
+                call.resolve([
+                    "result": true,
+                    "method": "showPlayer",
+                    "value": true
+                ])
+            }
+        }
     }
 }

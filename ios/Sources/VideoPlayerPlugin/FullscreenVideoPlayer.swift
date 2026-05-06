@@ -194,6 +194,34 @@ class FullscreenVideoPlayer: NSObject {
         }
     }
 
+    func show(on viewController: UIViewController, completion: @escaping () -> Void) {
+        guard let playerVC = playerViewController else {
+            completion()
+            return
+        }
+        if playerVC.presentingViewController != nil {
+            completion()
+            return
+        }
+        viewController.present(playerVC, animated: true) {
+            completion()
+        }
+    }
+
+    func hide(completion: @escaping () -> Void) {
+        guard let playerVC = playerViewController else {
+            completion()
+            return
+        }
+        if playerVC.presentingViewController == nil {
+            completion()
+            return
+        }
+        playerVC.dismiss(animated: true) {
+            completion()
+        }
+    }
+
     func dismiss() {
         let currentTime = getCurrentTime()
         castController?.detach(stopRemoteMedia: true)

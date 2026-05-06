@@ -122,6 +122,8 @@ await VideoPlayer.initPlayer({
 * [`showController()`](#showcontroller)
 * [`isControllerIsFullyVisible()`](#iscontrollerisfullyvisible)
 * [`exitPlayer()`](#exitplayer)
+* [`hidePlayer()`](#hideplayer)
+* [`showPlayer()`](#showplayer)
 * [Interfaces](#interfaces)
 
 </docgen-index>
@@ -396,6 +398,34 @@ exitPlayer() => Promise<capVideoPlayerResult>
 ```
 
 Exit player
+
+**Returns:** <code>Promise&lt;<a href="#capvideoplayerresult">capVideoPlayerResult</a>&gt;</code>
+
+--------------------
+
+
+### hidePlayer()
+
+```typescript
+hidePlayer() => Promise<capVideoPlayerResult>
+```
+
+Hide the currently presented player UI without stopping playback (native fullscreen).
+
+Call `showPlayer()` to show it again.
+
+**Returns:** <code>Promise&lt;<a href="#capvideoplayerresult">capVideoPlayerResult</a>&gt;</code>
+
+--------------------
+
+
+### showPlayer()
+
+```typescript
+showPlayer() => Promise<capVideoPlayerResult>
+```
+
+Show again a previously hidden player UI (native fullscreen).
 
 **Returns:** <code>Promise&lt;<a href="#capvideoplayerresult">capVideoPlayerResult</a>&gt;</code>
 

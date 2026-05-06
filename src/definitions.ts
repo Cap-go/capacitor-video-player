@@ -84,6 +84,16 @@ export interface VideoPlayerPlugin {
    *
    */
   exitPlayer(): Promise<capVideoPlayerResult>;
+  /**
+   * Hide the currently presented player UI without stopping playback (native fullscreen).
+   *
+   * Call `showPlayer()` to show it again.
+   */
+  hidePlayer(): Promise<capVideoPlayerResult>;
+  /**
+   * Show again a previously hidden player UI (native fullscreen).
+   */
+  showPlayer(): Promise<capVideoPlayerResult>;
 }
 export interface capEchoOptions {
   /**
