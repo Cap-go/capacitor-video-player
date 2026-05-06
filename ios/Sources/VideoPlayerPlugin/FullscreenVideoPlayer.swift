@@ -28,6 +28,7 @@ class FullscreenVideoPlayer: NSObject {
     private var fairplayContentKeySpcUrl: String?
     private var contentKeySession: AVContentKeySession?
     private var castController: VideoPlayerCastController?
+    private var didEmitExit: Bool = false
 
     init(
         playerId: String,
@@ -86,6 +87,7 @@ class FullscreenVideoPlayer: NSObject {
         playerViewController = AVPlayerViewController()
         playerViewController?.player = player
         playerViewController?.showsPlaybackControls = showControls
+        playerViewController?.delegate = self
 
         // Picture in Picture support
         playerViewController?.allowsPictureInPicturePlayback = pipEnabled
@@ -189,6 +191,7 @@ class FullscreenVideoPlayer: NSObject {
         }
 
         viewController.present(playerVC, animated: true) {
+            playerVC.presentationController?.delegate = self
             self.play()
             completion()
         }
@@ -196,15 +199,13 @@ class FullscreenVideoPlayer: NSObject {
 
     func dismiss() {
         let currentTime = getCurrentTime()
-        castController?.detach(stopRemoteMedia: true)
         playerViewController?.dismiss(animated: true) { [weak self] in
-            self?.cleanup()
-            self?.onExit?(currentTime)
+            self?.emitExitIfNeeded(currentTime: currentTime)
         }
     }
 
-    private func cleanup() {
-        castController?.detach(stopRemoteMedia: false)
+    private func cleanup(stopRemoteMedia: Bool = false) {
+        castController?.detach(stopRemoteMedia: stopRemoteMedia)
         castController = nil
         if let observer = timeObserver {
             player?.removeObserver(self, forKeyPath: "rate")
@@ -217,6 +218,15 @@ class FullscreenVideoPlayer: NSObject {
         player = nil
         playerItem = nil
         playerViewController = nil
+    }
+
+    private func emitExitIfNeeded(currentTime: Double? = nil) {
+        guard !didEmitExit else { return }
+        didEmitExit = true
+
+        let time = currentTime ?? getCurrentTime()
+        cleanup(stopRemoteMedia: true)
+        onExit?(time)
     }
 
     // MARK: - Playback Control
@@ -343,6 +353,27 @@ class FullscreenVideoPlayer: NSObject {
 
     deinit {
         cleanup()
+    }
+}
+
+extension FullscreenVideoPlayer: AVPlayerViewControllerDelegate {
+    func playerViewControllerWillEndFullScreenPresentation(
+        _ playerViewController: AVPlayerViewController,
+        withAnimationCoordinator coordinator: UIViewControllerTransitionCoordinator
+    ) {
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            self?.emitExitIfNeeded()
+        }
+    }
+
+    func playerViewControllerDidEndFullScreenPresentation(_ playerViewController: AVPlayerViewController) {
+        emitExitIfNeeded()
+    }
+}
+
+extension FullscreenVideoPlayer: UIAdaptivePresentationControllerDelegate {
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        emitExitIfNeeded()
     }
 }
 
