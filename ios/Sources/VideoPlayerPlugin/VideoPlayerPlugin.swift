@@ -79,12 +79,15 @@ extension VideoPlayerPlugin {
         let title = call.getString("title")
         let smallTitle = call.getString("smallTitle")
         let artwork = call.getString("artwork")
+        let chromecastUrl = call.getString("chromecastUrl")
 
         // Extract FairPlay DRM options if provided
         let drm = call.getObject("drm")
         let fairplay = drm?["fairplay"] as? [String: Any]
         let fairplayCertificateUrl = fairplay?["certificateUrl"] as? String
         let fairplayContentKeySpcUrl = fairplay?["contentKeySpcUrl"] as? String
+        let widevine = drm?["widevine"] as? [String: Any]
+        let widevineLicenseUrl = widevine?["certificateUrl"] as? String
 
         // Create video player
         let player = FullscreenVideoPlayer(
@@ -96,11 +99,13 @@ extension VideoPlayerPlugin {
             pipEnabled: pipEnabled,
             showControls: showControls,
             chromecast: chromecast,
+            chromecastUrl: chromecastUrl,
             title: title,
             smallTitle: smallTitle,
             artwork: artwork,
             fairplayCertificateUrl: fairplayCertificateUrl,
-            fairplayContentKeySpcUrl: fairplayContentKeySpcUrl
+            fairplayContentKeySpcUrl: fairplayContentKeySpcUrl,
+            widevineLicenseUrl: widevineLicenseUrl
         )
 
         // Present player

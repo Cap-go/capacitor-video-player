@@ -109,6 +109,7 @@ import org.json.JSONObject;
 public class FullscreenExoPlayerFragment extends Fragment {
 
     public String videoPath;
+    public String chromecastUrl;
     public Float videoRate;
     public String playerId;
     public String subTitle;
@@ -1449,6 +1450,9 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private final class EmptyCallback extends MediaRouter.Callback {}
 
     private Uri getCastUri() {
+        if (chromecastUrl != null && !chromecastUrl.isEmpty()) {
+            return Uri.parse(chromecastUrl);
+        }
         return uri != null ? uri : Uri.parse(videoPath);
     }
 
@@ -1525,6 +1529,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
         private static final String KEY_MEDIA_ITEM = "mediaItem";
         private static final String KEY_PLAYER_CONFIG = "exoPlayerConfig";
+        private static final String KEY_WIDEVINE_LICENSE_URL = "laurl";
         private static final String KEY_MEDIA_ID = "mediaId";
         private static final String KEY_URI = "uri";
         private static final String KEY_TITLE = "title";
@@ -1642,6 +1647,11 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 JSONObject playerConfig = buildPlayerConfigJson(mediaItem);
                 if (playerConfig != null) {
                     customData.put(KEY_PLAYER_CONFIG, playerConfig);
+                }
+                MediaItem.LocalConfiguration localConfiguration = mediaItem.localConfiguration;
+                MediaItem.DrmConfiguration drmConfiguration = localConfiguration != null ? localConfiguration.drmConfiguration : null;
+                if (drmConfiguration != null && C.WIDEVINE_UUID.equals(drmConfiguration.scheme) && drmConfiguration.licenseUri != null) {
+                    customData.put(KEY_WIDEVINE_LICENSE_URL, drmConfiguration.licenseUri.toString());
                 }
                 return customData;
             } catch (JSONException e) {

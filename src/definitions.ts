@@ -104,6 +104,13 @@ export interface capVideoPlayerOptions {
    */
   url?: string;
   /**
+   * Optional override URL used when casting to Chromecast (iOS, Android).
+   *
+   * This lets you cast an alternative rendition/manifest (e.g. MPEG-DASH + Widevine)
+   * while keeping the on-device playback URL unchanged (e.g. HLS + FairPlay on iOS).
+   */
+  chromecastUrl?: string;
+  /**
    * The url of subtitle associated with the video
    */
   subtitle?: string;
@@ -205,6 +212,9 @@ export interface capVideoPlayerOptions {
   artwork?: string;
   /**
    * DRM configuration for protected content (iOS: FairPlay, Android: Widevine)
+   *
+   * When casting, Widevine's `certificateUrl` (license URL) is also forwarded to Chromecast
+   * receivers as `media.customData.laurl`.
    */
   drm?: DrmOptions;
 }

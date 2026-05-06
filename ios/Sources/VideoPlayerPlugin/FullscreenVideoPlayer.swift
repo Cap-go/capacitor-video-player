@@ -14,6 +14,7 @@ class FullscreenVideoPlayer: NSObject {
     private var pipEnabled: Bool
     private var showControls: Bool
     private var chromecast: Bool
+    private var chromecastUrl: String?
     private var title: String?
     private var smallTitle: String?
     private var artwork: String?
@@ -26,6 +27,7 @@ class FullscreenVideoPlayer: NSObject {
     private var onExit: ((Double) -> Void)?
     private var fairplayCertificateUrl: String?
     private var fairplayContentKeySpcUrl: String?
+    private var widevineLicenseUrl: String?
     private var contentKeySession: AVContentKeySession?
     private var castController: VideoPlayerCastController?
 
@@ -38,11 +40,13 @@ class FullscreenVideoPlayer: NSObject {
         pipEnabled: Bool,
         showControls: Bool,
         chromecast: Bool,
+        chromecastUrl: String? = nil,
         title: String? = nil,
         smallTitle: String? = nil,
         artwork: String? = nil,
         fairplayCertificateUrl: String? = nil,
-        fairplayContentKeySpcUrl: String? = nil
+        fairplayContentKeySpcUrl: String? = nil,
+        widevineLicenseUrl: String? = nil
     ) {
         self.playerId = playerId
         self.videoUrl = url
@@ -52,11 +56,13 @@ class FullscreenVideoPlayer: NSObject {
         self.pipEnabled = pipEnabled
         self.showControls = showControls
         self.chromecast = chromecast
+        self.chromecastUrl = chromecastUrl
         self.title = title
         self.smallTitle = smallTitle
         self.artwork = artwork
         self.fairplayCertificateUrl = fairplayCertificateUrl
         self.fairplayContentKeySpcUrl = fairplayContentKeySpcUrl
+        self.widevineLicenseUrl = widevineLicenseUrl
         super.init()
     }
 
@@ -102,11 +108,19 @@ class FullscreenVideoPlayer: NSObject {
             return
         }
 
+        let castVideoUrl: String
+        if let chromecastUrl = chromecastUrl, !chromecastUrl.isEmpty {
+            castVideoUrl = chromecastUrl
+        } else {
+            castVideoUrl = videoUrl
+        }
+
         castController = VideoPlayerCastController(
-            videoUrl: videoUrl,
+            videoUrl: castVideoUrl,
             title: title,
             smallTitle: smallTitle,
-            artwork: artwork
+            artwork: artwork,
+            widevineLicenseUrl: widevineLicenseUrl
         )
         castController?.setOnPlay { [weak self] in
             self?.onPlay?()
