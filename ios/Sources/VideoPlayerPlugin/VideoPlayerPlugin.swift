@@ -85,6 +85,7 @@ extension VideoPlayerPlugin {
         let fairplay = drm?["fairplay"] as? [String: Any]
         let fairplayCertificateUrl = fairplay?["certificateUrl"] as? String
         let fairplayContentKeySpcUrl = fairplay?["contentKeySpcUrl"] as? String
+        let fairplayAssetId = fairplay?["assetId"] as? String
 
         // Create video player
         let player = FullscreenVideoPlayer(
@@ -100,7 +101,8 @@ extension VideoPlayerPlugin {
             smallTitle: smallTitle,
             artwork: artwork,
             fairplayCertificateUrl: fairplayCertificateUrl,
-            fairplayContentKeySpcUrl: fairplayContentKeySpcUrl
+            fairplayContentKeySpcUrl: fairplayContentKeySpcUrl,
+            fairplayAssetId: fairplayAssetId
         )
 
         // Present player

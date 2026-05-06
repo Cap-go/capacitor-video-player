@@ -468,10 +468,11 @@ Exit player
 
 #### FairPlayDrmOptions
 
-| Prop                   | Type                | Description                                                                       |
-| ---------------------- | ------------------- | --------------------------------------------------------------------------------- |
-| **`certificateUrl`**   | <code>string</code> | The URL to fetch the FairPlay certificate                                         |
-| **`contentKeySpcUrl`** | <code>string</code> | The URL to send the SPC and receive the CKC license (FairPlay license server URL) |
+| Prop                   | Type                | Description                                                                                                                        |
+| ---------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **`certificateUrl`**   | <code>string</code> | The URL to fetch the FairPlay certificate                                                                                          |
+| **`contentKeySpcUrl`** | <code>string</code> | The URL to send the SPC and receive the CKC license (FairPlay license server URL)                                                  |
+| **`assetId`**          | <code>string</code> | Optional FairPlay asset identifier used when generating the SPC. Defaults to the `skd://` content identifier from the key request. |
 
 
 #### PlayreadyDrmOptions

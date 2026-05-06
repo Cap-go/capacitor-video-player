@@ -26,6 +26,7 @@ class FullscreenVideoPlayer: NSObject {
     private var onExit: ((Double) -> Void)?
     private var fairplayCertificateUrl: String?
     private var fairplayContentKeySpcUrl: String?
+    private var fairplayAssetId: String?
     private var contentKeySession: AVContentKeySession?
     private var castController: VideoPlayerCastController?
 
@@ -42,7 +43,8 @@ class FullscreenVideoPlayer: NSObject {
         smallTitle: String? = nil,
         artwork: String? = nil,
         fairplayCertificateUrl: String? = nil,
-        fairplayContentKeySpcUrl: String? = nil
+        fairplayContentKeySpcUrl: String? = nil,
+        fairplayAssetId: String? = nil
     ) {
         self.playerId = playerId
         self.videoUrl = url
@@ -57,6 +59,7 @@ class FullscreenVideoPlayer: NSObject {
         self.artwork = artwork
         self.fairplayCertificateUrl = fairplayCertificateUrl
         self.fairplayContentKeySpcUrl = fairplayContentKeySpcUrl
+        self.fairplayAssetId = fairplayAssetId
         super.init()
     }
 
@@ -67,8 +70,9 @@ class FullscreenVideoPlayer: NSObject {
 
         let asset = AVURLAsset(url: url)
 
-        // Configure FairPlay DRM if certificate URL is provided
-        if let certUrl = fairplayCertificateUrl, !certUrl.isEmpty {
+        // Configure FairPlay DRM when fully configured (certificate + license endpoint)
+        if let certUrl = fairplayCertificateUrl, !certUrl.isEmpty,
+           let spcUrl = fairplayContentKeySpcUrl, !spcUrl.isEmpty {
             let session = AVContentKeySession(keySystem: .fairPlayStreaming)
             session.setDelegate(self, queue: DispatchQueue.global(qos: .default))
             session.addContentKeyRecipient(asset)
@@ -206,6 +210,8 @@ class FullscreenVideoPlayer: NSObject {
     private func cleanup() {
         castController?.detach(stopRemoteMedia: false)
         castController = nil
+        contentKeySession?.setDelegate(nil, queue: nil)
+        contentKeySession = nil
         if let observer = timeObserver {
             player?.removeObserver(self, forKeyPath: "rate")
             player?.removeTimeObserver(observer)
@@ -357,6 +363,61 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
         handleFairPlayKeyRequest(keyRequest)
     }
 
+    private func fairPlayContentIdentifierData(from identifier: Any?) -> Data? {
+        if let data = identifier as? Data {
+            return data.isEmpty ? nil : data
+        }
+
+        let identifierString: String?
+        if let url = identifier as? URL {
+            identifierString = url.absoluteString
+        } else if let string = identifier as? String {
+            identifierString = string
+        } else {
+            identifierString = nil
+        }
+
+        guard var string = identifierString?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !string.isEmpty else {
+            return nil
+        }
+
+        if string.hasPrefix("skd://") {
+            string.removeFirst("skd://".count)
+        } else if string.hasPrefix("skd:") {
+            string.removeFirst("skd:".count)
+        }
+
+        while string.hasPrefix("/") {
+            string.removeFirst()
+        }
+
+        return string.data(using: .utf8)
+    }
+
+    private func normalizeFairPlayCkcData(_ data: Data) -> Data {
+        if let object = try? JSONSerialization.jsonObject(with: data),
+           let dict = object as? [String: Any] {
+            let candidateKeys = ["ckc", "CKC", "license", "License", "data"]
+            for key in candidateKeys {
+                if let value = dict[key] as? String,
+                   let decoded = Data(base64Encoded: value) {
+                    return decoded
+                }
+            }
+        }
+
+        if let string = String(data: data, encoding: .utf8) {
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            if let decoded = Data(base64Encoded: trimmed) {
+                return decoded
+            }
+        }
+
+        return data
+    }
+
     private func handleFairPlayKeyRequest(_ keyRequest: AVContentKeyRequest) {
         guard let certUrlString = fairplayCertificateUrl,
               let certUrl = URL(string: certUrlString),
@@ -370,7 +431,17 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
         }
 
         // 1. Fetch the FairPlay certificate
-        URLSession.shared.dataTask(with: certUrl) { certData, _, certError in
+        URLSession.shared.dataTask(with: certUrl) { certData, certResponse, certError in
+            if let httpResponse = certResponse as? HTTPURLResponse,
+               !(200...299).contains(httpResponse.statusCode) {
+                keyRequest.processContentKeyResponseError(
+                    NSError(domain: "VideoPlayer", code: -2, userInfo: [
+                        NSLocalizedDescriptionKey: "Failed to fetch FairPlay certificate (HTTP \(httpResponse.statusCode))"
+                    ])
+                )
+                return
+            }
+
             guard let certData = certData else {
                 keyRequest.processContentKeyResponseError(
                     certError ?? NSError(domain: "VideoPlayer", code: -2,
@@ -380,11 +451,17 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
             }
 
             // 2. Create SPC (Server Playback Context) using the certificate
-            // contentIdentifier is nil here; override if your license server requires
-            // a specific content ID extracted from the asset URL scheme
+            let contentIdentifier: Data? = {
+                if let assetId = fairplayAssetId?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !assetId.isEmpty {
+                    return assetId.data(using: .utf8)
+                }
+                return fairPlayContentIdentifierData(from: keyRequest.identifier)
+            }()
+
             keyRequest.makeStreamingContentKeyRequestData(
                 forApp: certData,
-                contentIdentifier: nil,
+                contentIdentifier: contentIdentifier,
                 options: [AVContentKeyRequestProtocolVersionsKey: [1]]
             ) { spcData, spcError in
                 guard let spcData = spcData else {
@@ -401,7 +478,17 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
                 spcRequest.httpBody = spcData
                 spcRequest.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
 
-                URLSession.shared.dataTask(with: spcRequest) { ckcData, _, ckcError in
+                URLSession.shared.dataTask(with: spcRequest) { ckcData, ckcResponse, ckcError in
+                    if let httpResponse = ckcResponse as? HTTPURLResponse,
+                       !(200...299).contains(httpResponse.statusCode) {
+                        keyRequest.processContentKeyResponseError(
+                            NSError(domain: "VideoPlayer", code: -3, userInfo: [
+                                NSLocalizedDescriptionKey: "Failed to obtain FairPlay CKC (HTTP \(httpResponse.statusCode))"
+                            ])
+                        )
+                        return
+                    }
+
                     guard let ckcData = ckcData else {
                         keyRequest.processContentKeyResponseError(
                             ckcError ?? NSError(domain: "VideoPlayer", code: -3,
@@ -411,7 +498,8 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
                     }
 
                     // 4. Provide the CKC to AVFoundation to decrypt the content
-                    let keyResponse = AVContentKeyResponse(fairPlayStreamingKeyResponseData: ckcData)
+                    let normalizedCkcData = normalizeFairPlayCkcData(ckcData)
+                    let keyResponse = AVContentKeyResponse(fairPlayStreamingKeyResponseData: normalizedCkcData)
                     keyRequest.processContentKeyResponse(keyResponse)
                 }.resume()
             }
