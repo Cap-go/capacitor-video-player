@@ -8,6 +8,7 @@ export class VideoPlayer {
   public pipMode = false;
   public pipWindow: Window | undefined;
   public isPlaying: boolean | undefined;
+  public isHidden = false;
 
   private _url: string;
   private _playerId: string;
@@ -24,6 +25,7 @@ export class VideoPlayer {
   private _videoRate = 1.0;
   private _videoExitOnEnd = true;
   private _videoLoopOnEnd = false;
+  private _previousContainerDisplay: string | null = null;
 
   constructor(
     mode: string,
@@ -110,6 +112,32 @@ export class VideoPlayer {
       this._createEvent('Exit', this._playerId, 'Url Error: type not supported');
     }
     return;
+  }
+
+  public hide(): void {
+    if (this.isHidden) return;
+    this.isHidden = true;
+    if (this._mode === 'fullscreen') {
+      this._closeFullscreen();
+    }
+    if (this._previousContainerDisplay == null) {
+      this._previousContainerDisplay = this._container?.style?.display ?? '';
+    }
+    if (this._container?.style) {
+      this._container.style.display = 'none';
+    }
+  }
+
+  public show(): void {
+    if (!this.isHidden) return;
+    this.isHidden = false;
+    if (this._container?.style) {
+      this._container.style.display = this._previousContainerDisplay ?? 'flex';
+    }
+    if (this._mode === 'fullscreen') {
+      // Browsers may require a user gesture for fullscreen; if it fails we still show the container.
+      void this._goFullscreen();
+    }
   }
 
   private async createVideoElement(width: number, height: number): Promise<boolean> {

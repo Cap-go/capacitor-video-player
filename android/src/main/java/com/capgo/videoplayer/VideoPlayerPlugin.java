@@ -8,7 +8,9 @@ import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.util.Log;
+import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 import androidx.fragment.app.Fragment;
@@ -884,6 +886,76 @@ public class VideoPlayerPlugin extends Plugin {
                             ret.put("message", "Fullscreen fragment is not defined");
                             call.resolve(ret);
                         }
+                    }
+                }
+            );
+    }
+
+    @PluginMethod
+    public void hidePlayer(PluginCall call) {
+        this.call = call;
+        bridge
+            .getActivity()
+            .runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "hidePlayer");
+                        FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
+                        if (frameLayoutView != null && fsFragment != null) {
+                            frameLayoutView.setVisibility(View.GONE);
+                            Activity activity = getBridge().getActivity();
+                            activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                            activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                            activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+                            ret.put("result", true);
+                            ret.put("value", true);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen player is not defined");
+                        }
+                        call.resolve(ret);
+                    }
+                }
+            );
+    }
+
+    @PluginMethod
+    public void showPlayer(PluginCall call) {
+        this.call = call;
+        bridge
+            .getActivity()
+            .runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "showPlayer");
+                        FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
+                        if (frameLayoutView != null && fsFragment != null) {
+                            frameLayoutView.setVisibility(View.VISIBLE);
+                            Activity activity = getBridge().getActivity();
+                            activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                            activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                            activity
+                                .getWindow()
+                                .getDecorView()
+                                .setSystemUiVisibility(
+                                    View.SYSTEM_UI_FLAG_LOW_PROFILE |
+                                        View.SYSTEM_UI_FLAG_FULLSCREEN |
+                                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                                        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                                );
+                            ret.put("result", true);
+                            ret.put("value", true);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen player is not defined");
+                        }
+                        call.resolve(ret);
                     }
                 }
             );
