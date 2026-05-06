@@ -323,6 +323,11 @@ export interface FairPlayDrmOptions {
    * The URL to send the SPC and receive the CKC license (FairPlay license server URL)
    */
   contentKeySpcUrl?: string;
+  /**
+   * Optional FairPlay asset identifier used when generating the SPC.
+   * Defaults to the `skd://` content identifier from the key request.
+   */
+  assetId?: string;
 }
 export interface PlayreadyDrmOptions {
   /**
