@@ -1,3 +1,5 @@
+import { CapacitorUpdater } from '@capgo/capacitor-updater';
+import { Capacitor } from '@capacitor/core';
 import { VideoPlayer } from '@capgo/capacitor-video-player';
 
 const PLAYER_ID = 'embedded-player';
@@ -400,3 +402,9 @@ ui.clearLog.addEventListener('click', () => {
 
 toggleControls(false);
 setStatus('not initialised');
+
+if (Capacitor.isNativePlatform()) {
+  CapacitorUpdater.notifyAppReady().catch((error) => {
+    console.error('Capgo notifyAppReady failed', error);
+  });
+}
