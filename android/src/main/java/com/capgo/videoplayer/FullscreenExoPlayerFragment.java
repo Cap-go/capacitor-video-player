@@ -899,7 +899,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         DefaultHttpDataSource.Factory httpDataSourceFactory = new DefaultHttpDataSource.Factory();
         httpDataSourceFactory.setUserAgent("jeep-exoplayer-plugin");
         httpDataSourceFactory.setConnectTimeoutMs(DefaultHttpDataSource.DEFAULT_CONNECT_TIMEOUT_MILLIS);
-        httpDataSourceFactory.setReadTimeoutMs(1800000);
+        httpDataSourceFactory.setReadTimeoutMs(600000);
         httpDataSourceFactory.setAllowCrossProtocolRedirects(true);
 
         // If headers is not null and has data we pass them to the HttpDataSourceFactory
