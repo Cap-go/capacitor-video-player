@@ -29,6 +29,8 @@ class FullscreenVideoPlayer: NSObject {
     private var contentKeySession: AVContentKeySession?
     private var castController: VideoPlayerCastController?
     private weak var presentingViewController: UIViewController?
+    private var subtitleUrl: String?
+    private var subtitleLanguage: String?
 
     init(
         playerId: String,
@@ -42,6 +44,8 @@ class FullscreenVideoPlayer: NSObject {
         title: String? = nil,
         smallTitle: String? = nil,
         artwork: String? = nil,
+        subtitleUrl: String? = nil,
+        subtitleLanguage: String? = nil,
         fairplayCertificateUrl: String? = nil,
         fairplayContentKeySpcUrl: String? = nil
     ) {
@@ -56,19 +60,41 @@ class FullscreenVideoPlayer: NSObject {
         self.title = title
         self.smallTitle = smallTitle
         self.artwork = artwork
+        self.subtitleUrl = subtitleUrl
+        self.subtitleLanguage = subtitleLanguage
         self.fairplayCertificateUrl = fairplayCertificateUrl
         self.fairplayContentKeySpcUrl = fairplayContentKeySpcUrl
         super.init()
     }
 
-    func setupPlayer() {
+    func setupPlayer(completion: @escaping () -> Void) {
         guard let url = URL(string: videoUrl) else {
+            completion()
             return
         }
 
+        let asset = makeVideoAsset(url: url)
+
+        guard let subtitleUrlString = subtitleUrl,
+              !subtitleUrlString.isEmpty,
+              let subtitleURL = URL(string: subtitleUrlString) else {
+            configurePlayer(with: AVPlayerItem(asset: asset))
+            completion()
+            return
+        }
+
+        Task {
+            let item = await createPlayerItem(videoAsset: asset, subtitleURL: subtitleURL)
+            await MainActor.run {
+                self.configurePlayer(with: item)
+                completion()
+            }
+        }
+    }
+
+    private func makeVideoAsset(url: URL) -> AVURLAsset {
         let asset = AVURLAsset(url: url)
 
-        // Configure FairPlay DRM if certificate URL is provided
         if let certUrl = fairplayCertificateUrl, !certUrl.isEmpty {
             let session = AVContentKeySession(keySystem: .fairPlayStreaming)
             session.setDelegate(self, queue: DispatchQueue.global(qos: .default))
@@ -76,26 +102,112 @@ class FullscreenVideoPlayer: NSObject {
             self.contentKeySession = session
         }
 
-        // Create player item with asset
-        playerItem = AVPlayerItem(asset: asset)
+        return asset
+    }
 
-        // Create player
+    private func createPlayerItem(videoAsset: AVURLAsset, subtitleURL: URL) async -> AVPlayerItem {
+        let subtitleAsset = AVURLAsset(url: subtitleURL)
+
+        do {
+            let videoDuration = try await videoAsset.load(.duration)
+            let composition = AVMutableComposition()
+
+            try await insertTracks(
+                from: videoAsset,
+                mediaTypes: [.video, .audio],
+                duration: videoDuration,
+                into: composition
+            )
+
+            var subtitleAdded = false
+            let subtitleTracks = try await subtitleAsset.loadTracks(withMediaType: .text)
+            if let subtitleTrack = subtitleTracks.first {
+                let compositionTrack = composition.addMutableTrack(
+                    withMediaType: .text,
+                    preferredTrackID: kCMPersistentTrackID_Invalid
+                )
+                let subtitleDuration = try await subtitleAsset.load(.duration)
+                let duration = CMTimeCompare(subtitleDuration, videoDuration) < 0 ? subtitleDuration : videoDuration
+                try compositionTrack?.insertTimeRange(
+                    CMTimeRange(start: .zero, duration: duration),
+                    of: subtitleTrack,
+                    at: CMTime.zero
+                )
+                subtitleAdded = true
+            }
+
+            let playerItem = AVPlayerItem(asset: composition)
+
+            if subtitleAdded {
+                selectSubtitle(in: playerItem, language: subtitleLanguage)
+            }
+
+            return playerItem
+        } catch {
+            return AVPlayerItem(asset: videoAsset)
+        }
+    }
+
+    private func selectSubtitle(in playerItem: AVPlayerItem, language: String?) {
+        guard let group = playerItem.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) else {
+            return
+        }
+
+        let selectedOption = selectSubtitleOption(in: group, language: language)
+            ?? group.defaultOption
+            ?? group.options.first
+
+        if let selectedOption {
+            playerItem.select(selectedOption, in: group)
+        }
+    }
+
+    private func insertTracks(
+        from asset: AVURLAsset,
+        mediaTypes: [AVMediaType],
+        duration: CMTime,
+        into composition: AVMutableComposition
+    ) async throws {
+        for mediaType in mediaTypes {
+            let tracks = try await asset.loadTracks(withMediaType: mediaType)
+            guard let sourceTrack = tracks.first else { continue }
+
+            let compositionTrack = composition.addMutableTrack(
+                withMediaType: mediaType,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            )
+            try compositionTrack?.insertTimeRange(
+                CMTimeRange(start: .zero, duration: duration),
+                of: sourceTrack,
+                at: .zero
+            )
+        }
+    }
+
+    private func selectSubtitleOption(in group: AVMediaSelectionGroup, language: String?) -> AVMediaSelectionOption? {
+        guard let language, !language.isEmpty else { return nil }
+
+        return group.options.first { option in
+            option.extendedLanguageTag == language
+                || option.locale?.identifier == language
+                || option.locale?.languageCode == language
+        }
+    }
+
+    private func configurePlayer(with item: AVPlayerItem) {
+        playerItem = item
         player = AVPlayer(playerItem: playerItem)
         player?.rate = rate
 
-        // Create player view controller
         playerViewController = AVPlayerViewController()
         playerViewController?.player = player
         playerViewController?.showsPlaybackControls = showControls
-
-        // Picture in Picture support
         playerViewController?.allowsPictureInPicturePlayback = pipEnabled
         if pipEnabled {
             playerViewController?.delegate = self
         }
-        setupChromecast()
 
-        // Setup observers
+        setupChromecast()
         setupObservers()
     }
 
