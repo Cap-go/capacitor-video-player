@@ -28,6 +28,7 @@ class FullscreenVideoPlayer: NSObject {
     private var fairplayContentKeySpcUrl: String?
     private var contentKeySession: AVContentKeySession?
     private var castController: VideoPlayerCastController?
+    private weak var presentingViewController: UIViewController?
 
     init(
         playerId: String,
@@ -89,6 +90,9 @@ class FullscreenVideoPlayer: NSObject {
 
         // Picture in Picture support
         playerViewController?.allowsPictureInPicturePlayback = pipEnabled
+        if pipEnabled {
+            playerViewController?.delegate = self
+        }
         setupChromecast()
 
         // Setup observers
@@ -188,6 +192,7 @@ class FullscreenVideoPlayer: NSObject {
             return
         }
 
+        presentingViewController = viewController
         viewController.present(playerVC, animated: true) {
             self.play()
             completion()
@@ -343,6 +348,34 @@ class FullscreenVideoPlayer: NSObject {
 
     deinit {
         cleanup()
+    }
+}
+
+// MARK: - AVPlayerViewControllerDelegate (Picture in Picture)
+
+extension FullscreenVideoPlayer: AVPlayerViewControllerDelegate {
+    func playerViewControllerShouldAutomaticallyDismissAtPictureInPictureStart(
+        _ playerViewController: AVPlayerViewController
+    ) -> Bool {
+        false
+    }
+
+    func playerViewController(
+        _ playerViewController: AVPlayerViewController,
+        restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+    ) {
+        guard let presentingViewController else {
+            completionHandler(false)
+            return
+        }
+
+        if playerViewController.presentingViewController == nil {
+            presentingViewController.present(playerViewController, animated: false) {
+                completionHandler(true)
+            }
+        } else {
+            completionHandler(true)
+        }
     }
 }
 
