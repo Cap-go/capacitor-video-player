@@ -28,6 +28,7 @@ class FullscreenVideoPlayer: NSObject {
     private var fairplayContentKeySpcUrl: String?
     private var contentKeySession: AVContentKeySession?
     private var castController: VideoPlayerCastController?
+    private weak var presentingViewController: UIViewController?
     private var subtitleUrl: String?
     private var subtitleLanguage: String?
 
@@ -202,6 +203,9 @@ class FullscreenVideoPlayer: NSObject {
         playerViewController?.player = player
         playerViewController?.showsPlaybackControls = showControls
         playerViewController?.allowsPictureInPicturePlayback = pipEnabled
+        if pipEnabled {
+            playerViewController?.delegate = self
+        }
 
         setupChromecast()
         setupObservers()
@@ -300,6 +304,7 @@ class FullscreenVideoPlayer: NSObject {
             return
         }
 
+        presentingViewController = viewController
         viewController.present(playerVC, animated: true) {
             self.play()
             completion()
@@ -455,6 +460,36 @@ class FullscreenVideoPlayer: NSObject {
 
     deinit {
         cleanup()
+    }
+}
+
+// MARK: - AVPlayerViewControllerDelegate (Picture in Picture)
+
+extension FullscreenVideoPlayer: AVPlayerViewControllerDelegate {
+    func playerViewControllerShouldAutomaticallyDismissAtPictureInPictureStart(
+        _ playerViewController: AVPlayerViewController
+    ) -> Bool {
+        false
+    }
+
+    func playerViewController(
+        _ playerViewController: AVPlayerViewController,
+        restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+    ) {
+        guard let presentingViewController else {
+            completionHandler(false)
+            return
+        }
+
+        if playerViewController.presentingViewController == nil {
+            DispatchQueue.main.async {
+                presentingViewController.present(playerViewController, animated: false) {
+                    completionHandler(true)
+                }
+            }
+        } else {
+            completionHandler(true)
+        }
     }
 }
 
