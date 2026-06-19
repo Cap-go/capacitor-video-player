@@ -115,6 +115,22 @@ await VideoPlayer.initPlayer({
 - Widevine DRM metadata is forwarded to the Cast media item. DRM-protected streams may still require a receiver that supports your license server and DRM flow.
 - Request headers used by the Android local player are not automatically available to the Chromecast receiver. Use public URLs, signed URLs, cookies supported by your receiver, or a custom receiver for secured media.
 
+## Android Picture in Picture
+
+Picture in Picture on Android requires your app activity to declare PiP support in `android/app/src/main/AndroidManifest.xml`:
+
+```xml
+<activity
+  android:name=".MainActivity"
+  android:supportsPictureInPicture="true"
+  android:launchMode="singleTask"
+  android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+  ...>
+</activity>
+```
+
+`launchMode="singleTask"` and the `configChanges` flags prevent the player activity from being recreated when entering or leaving PiP.
+
 ## API
 
 <docgen-index>

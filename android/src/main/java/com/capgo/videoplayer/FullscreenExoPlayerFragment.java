@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.PictureInPictureParams;
+import android.content.ComponentName;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
@@ -48,6 +49,7 @@ import com.capgo.videoplayer.Notifications.NotificationCenter;
 import com.getcapacitor.JSObject;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.DefaultLoadControl;
+import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.LoadControl;
 import com.google.android.exoplayer2.MediaItem;
@@ -132,6 +134,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
     public JSObject drmOptions;
 
     private static final String TAG = FullscreenExoPlayerFragment.class.getName();
+    private static final Rational DEFAULT_PIP_ASPECT_RATIO = new Rational(16, 9);
+    // Android PiP aspect ratio must stay within [100/239, 239/100].
+    private static final Rational MIN_PIP_ASPECT_RATIO = new Rational(100, 239);
+    private static final Rational MAX_PIP_ASPECT_RATIO = new Rational(239, 100);
     public static final long UNKNOWN_TIME = -1L;
     private final List<String> supportedFormat = Arrays.asList(
         new String[] { "mp4", "webm", "ogv", "3gp", "flv", "dash", "mpd", "m3u8", "ism", "ytube", "" }
@@ -459,7 +465,9 @@ public class FullscreenExoPlayerFragment extends Fragment {
                             new View.OnClickListener() {
                                 @Override
                                 public void onClick(View view) {
-                                    pictureInPictureMode();
+                                    if (playerReady) {
+                                        pictureInPictureMode();
+                                    }
                                 }
                             }
                         );
@@ -595,35 +603,114 @@ public class FullscreenExoPlayerFragment extends Fragment {
      * Perform pictureInPictureMode Action
      */
     private void pictureInPictureMode() {
-        if (packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
-            styledPlayerView.setUseController(false);
-            styledPlayerView.setControllerAutoShow(false);
-            linearLayout.setVisibility(View.INVISIBLE);
-            Log.v(TAG, "PIP break 1");
-            // require android O or higher
-            if (
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-            ) {
-                pictureInPictureParams = new PictureInPictureParams.Builder();
-                // setup height and width of the PIP window
-                Rational aspectRatio = new Rational(player.getVideoFormat().width, player.getVideoFormat().height);
-                pictureInPictureParams.setAspectRatio(aspectRatio).build();
-                getActivity().enterPictureInPictureMode(pictureInPictureParams.build());
-                Log.v(TAG, "PIP break 2");
+        Activity activity = getActivity();
+        if (
+            activity == null ||
+            player == null ||
+            !playerReady ||
+            !pipEnabled ||
+            !packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+        ) {
+            return;
+        }
+
+        if (!activitySupportsPictureInPicture(activity)) {
+            Log.w(TAG, "pictureInPictureMode: activity does not declare supportsPictureInPicture");
+            Toast.makeText(context, "Picture in Picture is not enabled for this activity", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        styledPlayerView.setUseController(false);
+        styledPlayerView.setControllerAutoShow(false);
+        linearLayout.setVisibility(View.INVISIBLE);
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                pictureInPictureParams = new PictureInPictureParams.Builder().setAspectRatio(getPipAspectRatio());
+                if (!activity.enterPictureInPictureMode(pictureInPictureParams.build())) {
+                    Log.w(TAG, "pictureInPictureMode: enterPictureInPictureMode returned false");
+                    restorePlayerUiAfterFailedPip();
+                    return;
+                }
             } else {
-                getActivity().enterPictureInPictureMode();
-                Log.v(TAG, "PIP break 3");
+                activity.enterPictureInPictureMode();
             }
-            isInPictureInPictureMode = getActivity().isInPictureInPictureMode();
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            Log.e(TAG, "pictureInPictureMode failed", exception);
+            restorePlayerUiAfterFailedPip();
+            Toast.makeText(context, "Unable to start Picture in Picture", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        isInPictureInPictureMode = activity.isInPictureInPictureMode();
+        if (sturi != null) {
+            setSubtitle(true);
+        }
+        play();
+        handler.postDelayed(mRunnable, 100);
+    }
+
+    private void restorePlayerUiAfterFailedPip() {
+        linearLayout.setVisibility(View.INVISIBLE);
+        if (showControls) {
+            styledPlayerView.setUseController(true);
+            styledPlayerView.setControllerAutoShow(true);
+        }
+    }
+
+    private boolean activitySupportsPictureInPicture(Activity activity) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return true;
+        }
+
+        try {
+            ActivityInfo activityInfo = activity
+                .getPackageManager()
+                .getActivityInfo(new ComponentName(activity, activity.getClass()), PackageManager.GET_META_DATA);
+            return activityInfo.supportsPictureInPicture();
+        } catch (PackageManager.NameNotFoundException exception) {
+            Log.e(TAG, "Unable to read activity PiP support", exception);
+            return false;
+        }
+    }
+
+    private Rational getPipAspectRatio() {
+        if (player == null) {
+            return DEFAULT_PIP_ASPECT_RATIO;
+        }
+
+        Format videoFormat = player.getVideoFormat();
+        if (videoFormat == null || videoFormat.width <= 0 || videoFormat.height <= 0) {
+            return DEFAULT_PIP_ASPECT_RATIO;
+        }
+
+        Rational aspectRatio = new Rational(videoFormat.width, videoFormat.height);
+        if (aspectRatio.floatValue() < MIN_PIP_ASPECT_RATIO.floatValue()) {
+            return MIN_PIP_ASPECT_RATIO;
+        }
+        if (aspectRatio.floatValue() > MAX_PIP_ASPECT_RATIO.floatValue()) {
+            return MAX_PIP_ASPECT_RATIO;
+        }
+        return aspectRatio;
+    }
+
+    public void handlePictureInPictureModeChanged(boolean inPictureInPictureMode) {
+        isInPictureInPictureMode = inPictureInPictureMode;
+        if (inPictureInPictureMode) {
+            linearLayout.setVisibility(View.INVISIBLE);
+            styledPlayerView.setUseController(false);
             if (sturi != null) {
                 setSubtitle(true);
             }
-            if (player != null) play();
+            return;
+        }
 
-            handler.postDelayed(mRunnable, 100);
-            Log.v(TAG, "PIP break 4");
-        } else {
-            Log.v(TAG, "pictureInPictureMode: doesn't support PIP");
+        isPIPModeEnabled = true;
+        if (showControls) {
+            styledPlayerView.setUseController(true);
+        }
+        if (sturi != null) {
+            setSubtitle(false);
         }
     }
 
@@ -662,12 +749,17 @@ public class FullscreenExoPlayerFragment extends Fragment {
     @Override
     public void onStop() {
         super.onStop();
-        boolean isAppBackground = false;
-        if (bkModeEnabled) isAppBackground = isApplicationSentToBackground(context);
-        if (isInPictureInPictureMode) {
+        Activity activity = getActivity();
+        if (activity != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode()) {
+            isInPictureInPictureMode = true;
+            return;
+        }
+
+        if (isInPictureInPictureMode && activity != null) {
+            isInPictureInPictureMode = false;
             linearLayout.setVisibility(View.VISIBLE);
             playerExit();
-            getActivity().finishAndRemoveTask();
+            activity.finishAndRemoveTask();
         }
     }
 
@@ -1706,6 +1798,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        Activity activity = getActivity();
+        if (activity != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            handlePictureInPictureModeChanged(activity.isInPictureInPictureMode());
+        }
         adjustAspectRatio();
     }
 
