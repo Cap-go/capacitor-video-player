@@ -482,8 +482,10 @@ extension FullscreenVideoPlayer: AVPlayerViewControllerDelegate {
         }
 
         if playerViewController.presentingViewController == nil {
-            presentingViewController.present(playerViewController, animated: false) {
-                completionHandler(true)
+            DispatchQueue.main.async {
+                presentingViewController.present(playerViewController, animated: false) {
+                    completionHandler(true)
+                }
             }
         } else {
             completionHandler(true)
