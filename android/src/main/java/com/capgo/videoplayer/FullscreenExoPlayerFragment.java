@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.PictureInPictureParams;
-import android.content.ComponentName;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
@@ -49,8 +48,8 @@ import com.capgo.videoplayer.Notifications.NotificationCenter;
 import com.getcapacitor.JSObject;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.DefaultLoadControl;
-import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.ExoPlayer;
+import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.LoadControl;
 import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.MediaMetadata;
@@ -614,12 +613,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
             return;
         }
 
-        if (!activitySupportsPictureInPicture(activity)) {
-            Log.w(TAG, "pictureInPictureMode: activity does not declare supportsPictureInPicture");
-            Toast.makeText(context, "Picture in Picture is not enabled for this activity", Toast.LENGTH_LONG).show();
-            return;
-        }
-
         styledPlayerView.setUseController(false);
         styledPlayerView.setControllerAutoShow(false);
         linearLayout.setVisibility(View.INVISIBLE);
@@ -655,22 +648,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (showControls) {
             styledPlayerView.setUseController(true);
             styledPlayerView.setControllerAutoShow(true);
-        }
-    }
-
-    private boolean activitySupportsPictureInPicture(Activity activity) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return true;
-        }
-
-        try {
-            ActivityInfo activityInfo = activity
-                .getPackageManager()
-                .getActivityInfo(new ComponentName(activity, activity.getClass()), PackageManager.GET_META_DATA);
-            return activityInfo.supportsPictureInPicture();
-        } catch (PackageManager.NameNotFoundException exception) {
-            Log.e(TAG, "Unable to read activity PiP support", exception);
-            return false;
         }
     }
 
