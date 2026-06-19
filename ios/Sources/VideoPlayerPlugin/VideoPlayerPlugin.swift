@@ -79,6 +79,8 @@ extension VideoPlayerPlugin {
         let title = call.getString("title")
         let smallTitle = call.getString("smallTitle")
         let artwork = call.getString("artwork")
+        let subtitle = call.getString("subtitle")
+        let language = call.getString("language")
 
         // Extract FairPlay DRM options if provided
         let drm = call.getObject("drm")
@@ -99,6 +101,8 @@ extension VideoPlayerPlugin {
             title: title,
             smallTitle: smallTitle,
             artwork: artwork,
+            subtitleUrl: subtitle,
+            subtitleLanguage: language,
             fairplayCertificateUrl: fairplayCertificateUrl,
             fairplayContentKeySpcUrl: fairplayContentKeySpcUrl
         )
@@ -114,19 +118,20 @@ extension VideoPlayerPlugin {
                 return
             }
 
-            player.setupPlayer()
-            self.configureCallbacks(for: player, playerId: playerId)
+            player.setupPlayer {
+                self.configureCallbacks(for: player, playerId: playerId)
 
-            // Store player
-            self.videoPlayers[playerId] = player
-            self.currentPlayerId = playerId
+                // Store player
+                self.videoPlayers[playerId] = player
+                self.currentPlayerId = playerId
 
-            player.present(on: viewController) {
-                call.resolve([
-                    "result": true,
-                    "method": "initPlayer",
-                    "value": playerId
-                ])
+                player.present(on: viewController) {
+                    call.resolve([
+                        "result": true,
+                        "method": "initPlayer",
+                        "value": playerId
+                    ])
+                }
             }
         }
     }
