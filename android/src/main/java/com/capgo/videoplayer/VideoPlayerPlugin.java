@@ -6,6 +6,7 @@ import android.app.UiModeManager;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.util.Log;
 import android.view.ViewGroup;
@@ -91,6 +92,14 @@ public class VideoPlayerPlugin extends Plugin {
         implementation = new VideoPlayer(this.context);
         this.filesUtils = new FilesUtils(this.context);
         this.fragmentUtils = new FragmentUtils(getBridge());
+    }
+
+    @Override
+    protected void handleOnConfigurationChanged(Configuration newConfig) {
+        super.handleOnConfigurationChanged(newConfig);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && fsFragment != null && getActivity() != null) {
+            fsFragment.handlePictureInPictureModeChanged(getActivity().isInPictureInPictureMode());
+        }
     }
 
     @PermissionCallback
