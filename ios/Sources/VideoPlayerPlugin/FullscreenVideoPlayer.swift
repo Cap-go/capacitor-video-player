@@ -469,7 +469,7 @@ extension FullscreenVideoPlayer: AVPlayerViewControllerDelegate {
     func playerViewControllerShouldAutomaticallyDismissAtPictureInPictureStart(
         _ playerViewController: AVPlayerViewController
     ) -> Bool {
-        false
+        true
     }
 
     func playerViewController(
