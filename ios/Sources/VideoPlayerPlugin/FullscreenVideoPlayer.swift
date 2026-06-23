@@ -31,6 +31,7 @@ class FullscreenVideoPlayer: NSObject {
     private weak var presentingViewController: UIViewController?
     private var subtitleUrl: String?
     private var subtitleLanguage: String?
+    private var hlsResourceLoader: HLSSubtitleResourceLoader?
 
     init(
         playerId: String,
@@ -73,18 +74,29 @@ class FullscreenVideoPlayer: NSObject {
             return
         }
 
-        let asset = makeVideoAsset(url: url)
-
         guard let subtitleUrlString = subtitleUrl,
               !subtitleUrlString.isEmpty,
               let subtitleURL = URL(string: subtitleUrlString) else {
+            let asset = makeVideoAsset(url: url, subtitleURL: nil)
+            configurePlayer(with: AVPlayerItem(asset: asset))
+            completion()
+            return
+        }
+
+        if HLSVideoAssetFactory.isHLSStream(url) {
+            let asset = makeVideoAsset(url: url, subtitleURL: subtitleURL)
             configurePlayer(with: AVPlayerItem(asset: asset))
             completion()
             return
         }
 
         Task {
-            let item = await createPlayerItem(videoAsset: asset, subtitleURL: subtitleURL)
+            let asset = makeVideoAsset(url: url, subtitleURL: nil)
+            let item = await ProgressiveVideoPlayerItemFactory.createPlayerItem(
+                videoAsset: asset,
+                subtitleURL: subtitleURL,
+                subtitleLanguage: subtitleLanguage
+            )
             await MainActor.run {
                 self.configurePlayer(with: item)
                 completion()
@@ -92,8 +104,14 @@ class FullscreenVideoPlayer: NSObject {
         }
     }
 
-    private func makeVideoAsset(url: URL) -> AVURLAsset {
-        let asset = AVURLAsset(url: url)
+    private func makeVideoAsset(url: URL, subtitleURL: URL?) -> AVURLAsset {
+        let result = HLSVideoAssetFactory.makeAsset(
+            videoURL: url,
+            subtitleURL: subtitleURL,
+            language: subtitleLanguage ?? "en"
+        )
+        hlsResourceLoader = result.resourceLoader
+        let asset = result.asset
 
         if let certUrl = fairplayCertificateUrl, !certUrl.isEmpty {
             let session = AVContentKeySession(keySystem: .fairPlayStreaming)
@@ -103,95 +121,6 @@ class FullscreenVideoPlayer: NSObject {
         }
 
         return asset
-    }
-
-    private func createPlayerItem(videoAsset: AVURLAsset, subtitleURL: URL) async -> AVPlayerItem {
-        let subtitleAsset = AVURLAsset(url: subtitleURL)
-
-        do {
-            let videoDuration = try await videoAsset.load(.duration)
-            let composition = AVMutableComposition()
-
-            try await insertTracks(
-                from: videoAsset,
-                mediaTypes: [.video, .audio],
-                duration: videoDuration,
-                into: composition
-            )
-
-            var subtitleAdded = false
-            let subtitleTracks = try await subtitleAsset.loadTracks(withMediaType: .text)
-            if let subtitleTrack = subtitleTracks.first {
-                let compositionTrack = composition.addMutableTrack(
-                    withMediaType: .text,
-                    preferredTrackID: kCMPersistentTrackID_Invalid
-                )
-                let subtitleDuration = try await subtitleAsset.load(.duration)
-                let duration = CMTimeCompare(subtitleDuration, videoDuration) < 0 ? subtitleDuration : videoDuration
-                try compositionTrack?.insertTimeRange(
-                    CMTimeRange(start: .zero, duration: duration),
-                    of: subtitleTrack,
-                    at: CMTime.zero
-                )
-                subtitleAdded = true
-            }
-
-            let playerItem = AVPlayerItem(asset: composition)
-
-            if subtitleAdded {
-                selectSubtitle(in: playerItem, language: subtitleLanguage)
-            }
-
-            return playerItem
-        } catch {
-            return AVPlayerItem(asset: videoAsset)
-        }
-    }
-
-    private func selectSubtitle(in playerItem: AVPlayerItem, language: String?) {
-        guard let group = playerItem.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) else {
-            return
-        }
-
-        let selectedOption = selectSubtitleOption(in: group, language: language)
-            ?? group.defaultOption
-            ?? group.options.first
-
-        if let selectedOption {
-            playerItem.select(selectedOption, in: group)
-        }
-    }
-
-    private func insertTracks(
-        from asset: AVURLAsset,
-        mediaTypes: [AVMediaType],
-        duration: CMTime,
-        into composition: AVMutableComposition
-    ) async throws {
-        for mediaType in mediaTypes {
-            let tracks = try await asset.loadTracks(withMediaType: mediaType)
-            guard let sourceTrack = tracks.first else { continue }
-
-            let compositionTrack = composition.addMutableTrack(
-                withMediaType: mediaType,
-                preferredTrackID: kCMPersistentTrackID_Invalid
-            )
-            try compositionTrack?.insertTimeRange(
-                CMTimeRange(start: .zero, duration: duration),
-                of: sourceTrack,
-                at: .zero
-            )
-        }
-    }
-
-    private func selectSubtitleOption(in group: AVMediaSelectionGroup, language: String?) -> AVMediaSelectionOption? {
-        guard let language, !language.isEmpty else { return nil }
-
-        return group.options.first { option in
-            option.extendedLanguageTag == language
-                || option.locale?.identifier == language
-                || option.locale?.languageCode == language
-        }
     }
 
     private func configurePlayer(with item: AVPlayerItem) {
@@ -323,6 +252,7 @@ class FullscreenVideoPlayer: NSObject {
     private func cleanup() {
         castController?.detach(stopRemoteMedia: false)
         castController = nil
+        hlsResourceLoader = nil
         if let observer = timeObserver {
             player?.removeObserver(self, forKeyPath: "rate")
             player?.removeTimeObserver(observer)
