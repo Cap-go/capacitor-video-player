@@ -15,9 +15,7 @@ public class VideoPlayerCastOptionsProvider implements OptionsProvider {
     public CastOptions getCastOptions(Context context) {
         return new CastOptions.Builder()
             .setReceiverApplicationId(CastMediaControlIntent.DEFAULT_MEDIA_RECEIVER_APPLICATION_ID)
-            .setCastMediaOptions(
-                new CastMediaOptions.Builder().setNotificationOptions(new NotificationOptions.Builder().build()).build()
-            )
+            .setCastMediaOptions(new CastMediaOptions.Builder().setNotificationOptions(new NotificationOptions.Builder().build()).build())
             .build();
     }
 

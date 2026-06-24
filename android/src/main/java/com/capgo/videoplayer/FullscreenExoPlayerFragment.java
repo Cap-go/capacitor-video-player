@@ -210,6 +210,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private boolean isChromecastEnabled() {
         return Boolean.TRUE.equals(chromecast);
     }
+
     /**
      * Create Fragment View
      * @param inflater
@@ -759,7 +760,9 @@ public class FullscreenExoPlayerFragment extends Fragment {
     @Override
     public void onPause() {
         super.onPause();
-        if (isChromecastEnabled() && castContext != null && castStateListener != null) castContext.removeCastStateListener(castStateListener);
+        if (isChromecastEnabled() && castContext != null && castStateListener != null) castContext.removeCastStateListener(
+            castStateListener
+        );
         boolean isAppBackground = false;
         if (bkModeEnabled) isAppBackground = isApplicationSentToBackground(context);
 
