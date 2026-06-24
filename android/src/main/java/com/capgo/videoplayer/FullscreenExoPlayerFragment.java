@@ -207,6 +207,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private CastStateListener castStateListener = null;
     private Boolean playerReady = false;
 
+    private boolean isChromecastEnabled() {
+        return Boolean.TRUE.equals(chromecast);
+    }
+
     /**
      * Create Fragment View
      * @param inflater
@@ -254,7 +258,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
             styledPlayerView.setUseController(true);
         }
 
-        if (!chromecast) {
+        if (!isChromecastEnabled()) {
             mediaRouteButton.setVisibility(View.GONE);
         } else {
             initializeCastService();
@@ -708,7 +712,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
         if (styledPlayerView != null) {
             // If cast is playing then it doesn't start the local player once get backs from background
-            if (castContext != null && chromecast && castPlayer.isCastSessionAvailable()) return;
+            if (isChromecastEnabled() && castContext != null && castPlayer != null && castPlayer.isCastSessionAvailable()) return;
 
             initializePlayer();
             if (player.getCurrentPosition() != 0) {
@@ -746,7 +750,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (chromecast) mRouter.removeCallback(mCallback);
+        if (isChromecastEnabled() && mRouter != null) mRouter.removeCallback(mCallback);
         releasePlayer();
     }
 
@@ -756,7 +760,9 @@ public class FullscreenExoPlayerFragment extends Fragment {
     @Override
     public void onPause() {
         super.onPause();
-        if (chromecast) castContext.removeCastStateListener(castStateListener);
+        if (isChromecastEnabled() && castContext != null && castStateListener != null) castContext.removeCastStateListener(
+            castStateListener
+        );
         boolean isAppBackground = false;
         if (bkModeEnabled) isAppBackground = isApplicationSentToBackground(context);
 
@@ -792,7 +798,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
             player = null;
             showSystemUI();
             resetVariables();
-            if (chromecast) {
+            if (isChromecastEnabled() && castPlayer != null) {
                 castPlayer.release();
                 castPlayer = null;
             }
@@ -1508,7 +1514,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
                         mRouter.addCallback(mSelector, mCallback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY);
                     } else {
                         Exception e = task.getException();
-                        e.printStackTrace();
+                        Log.e(TAG, "Failed to initialize Chromecast", e);
+                        if (mediaRouteButton != null) {
+                            mediaRouteButton.setVisibility(View.GONE);
+                        }
                     }
                 }
             }
