@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import UniformTypeIdentifiers
 
 enum HLSVideoAssetFactory {
     static func isHLSStream(_ url: URL) -> Bool {
@@ -43,10 +44,16 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
     static let videoScheme = "capgohls"
     static let subtitlePlaylistScheme = "capgohls-sub"
     private static let subtitleGroupID = "capgosubs"
+    private static let mpegURLContentType = UTType.m3uPlaylist.identifier
 
     private let originalVideoURL: URL
     private let subtitleURL: URL
     private let language: String
+
+    private struct LoadedResource {
+        let data: Data
+        let contentType: String?
+    }
 
     init(videoURL: URL, subtitleURL: URL, language: String) {
         self.originalVideoURL = videoURL
@@ -80,8 +87,8 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
 
         Task {
             do {
-                let data = try await loadData(for: requestURL)
-                fulfill(loadingRequest, with: data)
+                let resource = try await loadData(for: requestURL)
+                fulfill(loadingRequest, with: resource)
             } catch {
                 loadingRequest.finishLoading(with: error)
             }
@@ -90,25 +97,36 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         return true
     }
 
-    private func loadData(for requestURL: URL) async throws -> Data {
+    private func loadData(for requestURL: URL) async throws -> LoadedResource {
         if requestURL.scheme == Self.subtitlePlaylistScheme {
-            return Data(subtitleMediaPlaylist().utf8)
+            let data = Data(subtitleMediaPlaylist().utf8)
+            return LoadedResource(data: data, contentType: Self.mpegURLContentType)
         }
 
         let fetchURL = originalURL(for: requestURL)
-        let (data, _) = try await URLSession.shared.data(from: fetchURL)
+        let (data, response) = try await URLSession.shared.data(from: fetchURL)
+        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            throw URLError(.badServerResponse)
+        }
+
         let manifest = String(data: data, encoding: .utf8) ?? ""
 
         guard hasStreamInfTags(manifest) else {
-            return data
+            let contentType = Self.contentTypeIdentifier(from: response)
+            return LoadedResource(data: data, contentType: contentType)
         }
 
         guard let subtitlePlaylistURI = Self.subtitlePlaylistURL(for: originalVideoURL)?.absoluteString else {
-            return data
+            let contentType = Self.contentTypeIdentifier(from: response) ?? Self.mpegURLContentType
+            return LoadedResource(data: data, contentType: contentType)
         }
 
-        let modified = injectSubtitle(into: manifest, subtitlePlaylistURI: subtitlePlaylistURI)
-        return Data(modified.utf8)
+        let modified = injectSubtitle(
+            into: manifest,
+            subtitlePlaylistURI: subtitlePlaylistURI,
+            baseURL: response.url ?? fetchURL
+        )
+        return LoadedResource(data: Data(modified.utf8), contentType: Self.mpegURLContentType)
     }
 
     private func originalURL(for requestURL: URL) -> URL {
@@ -125,7 +143,22 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         manifest.contains("#EXT-X-STREAM-INF")
     }
 
-    private func injectSubtitle(into manifest: String, subtitlePlaylistURI: String) -> String {
+    private static func contentTypeIdentifier(from response: URLResponse) -> String? {
+        guard let mimeType = (response as? HTTPURLResponse)?.mimeType else {
+            return nil
+        }
+        return UTType(mimeType: mimeType)?.identifier
+    }
+
+    private func absoluteURI(for uri: String, relativeTo baseURL: URL) -> String {
+        let trimmed = uri.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed, relativeTo: baseURL)?.absoluteURL else {
+            return trimmed
+        }
+        return url.absoluteString
+    }
+
+    private func injectSubtitle(into manifest: String, subtitlePlaylistURI: String, baseURL: URL) -> String {
         let mediaTag = """
         #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="\(Self.subtitleGroupID)",NAME="Subtitles",DEFAULT=YES,AUTOSELECT=YES,FORCED=NO,LANGUAGE="\(language)",URI="\(subtitlePlaylistURI)"
         """
@@ -133,9 +166,10 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         var lines = manifest.components(separatedBy: .newlines)
         var result: [String] = []
         var insertedMediaTag = false
+        var expectingVariantURI = false
 
         for line in lines {
-            if line.hasPrefix("#EXT-X-STREAM-INF") {
+            if line.hasPrefix("#EXT-X-STREAM-INF") || line.hasPrefix("#EXT-X-I-FRAME-STREAM-INF") {
                 if !insertedMediaTag {
                     result.append(mediaTag)
                     insertedMediaTag = true
@@ -146,9 +180,17 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
                 } else {
                     result.append("\(line),SUBTITLES=\"\(Self.subtitleGroupID)\"")
                 }
+                expectingVariantURI = true
                 continue
             }
 
+            if expectingVariantURI, !line.hasPrefix("#"), !line.isEmpty {
+                result.append(absoluteURI(for: line, relativeTo: baseURL))
+                expectingVariantURI = false
+                continue
+            }
+
+            expectingVariantURI = false
             result.append(line)
         }
 
@@ -172,14 +214,16 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         """
     }
 
-    private func fulfill(_ loadingRequest: AVAssetResourceLoadingRequest, with data: Data) {
+    private func fulfill(_ loadingRequest: AVAssetResourceLoadingRequest, with resource: LoadedResource) {
         if let contentRequest = loadingRequest.contentInformationRequest {
-            contentRequest.contentType = "application/vnd.apple.mpegurl"
-            contentRequest.contentLength = Int64(data.count)
+            if let contentType = resource.contentType {
+                contentRequest.contentType = contentType
+            }
+            contentRequest.contentLength = Int64(resource.data.count)
             contentRequest.isByteRangeAccessSupported = false
         }
 
-        loadingRequest.dataRequest?.respond(with: data)
+        loadingRequest.dataRequest?.respond(with: resource.data)
         loadingRequest.finishLoading()
     }
 }
