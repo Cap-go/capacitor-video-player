@@ -152,6 +152,8 @@ Picture in Picture on Android requires your app activity to declare PiP support 
 * [`showController()`](#showcontroller)
 * [`isControllerIsFullyVisible()`](#iscontrollerisfullyvisible)
 * [`exitPlayer()`](#exitplayer)
+* [`hidePlayer()`](#hideplayer)
+* [`showPlayer()`](#showplayer)
 * [Interfaces](#interfaces)
 
 </docgen-index>
@@ -432,6 +434,34 @@ Exit player
 --------------------
 
 
+### hidePlayer()
+
+```typescript
+hidePlayer() => Promise<capVideoPlayerResult>
+```
+
+Hide the currently presented player UI without stopping playback (native fullscreen).
+
+Call `showPlayer()` to show it again.
+
+**Returns:** <code>Promise&lt;<a href="#capvideoplayerresult">capVideoPlayerResult</a>&gt;</code>
+
+--------------------
+
+
+### showPlayer()
+
+```typescript
+showPlayer() => Promise<capVideoPlayerResult>
+```
+
+Show again a previously hidden player UI (native fullscreen).
+
+**Returns:** <code>Promise&lt;<a href="#capvideoplayerresult">capVideoPlayerResult</a>&gt;</code>
+
+--------------------
+
+
 ### Interfaces
 
 
@@ -447,31 +477,33 @@ Exit player
 
 #### capVideoPlayerOptions
 
-| Prop                  | Type                                                        | Description                                                                                                                                                                           |
-| --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`mode`**            | <code>string</code>                                         | Player mode - "fullscreen" - "embedded" (Web only)                                                                                                                                    |
-| **`url`**             | <code>string</code>                                         | The url of the video to play                                                                                                                                                          |
-| **`subtitle`**        | <code>string</code>                                         | The url of subtitle associated with the video                                                                                                                                         |
-| **`language`**        | <code>string</code>                                         | The language of subtitle see https://github.com/libyal/libfwnt/wiki/Language-Code-identifiers                                                                                         |
-| **`subtitleOptions`** | <code><a href="#subtitleoptions">SubTitleOptions</a></code> | SubTitle Options                                                                                                                                                                      |
-| **`playerId`**        | <code>string</code>                                         | Id of DIV Element parent of the player                                                                                                                                                |
-| **`rate`**            | <code>number</code>                                         | Initial playing rate                                                                                                                                                                  |
-| **`exitOnEnd`**       | <code>boolean</code>                                        | Exit on VideoEnd (iOS, Android) default: true                                                                                                                                         |
-| **`loopOnEnd`**       | <code>boolean</code>                                        | Loop on VideoEnd when exitOnEnd false (iOS, Android) default: false                                                                                                                   |
-| **`pipEnabled`**      | <code>boolean</code>                                        | Picture in Picture Enable (iOS, Android) default: true                                                                                                                                |
-| **`bkmodeEnabled`**   | <code>boolean</code>                                        | Background Mode Enable (iOS, Android) default: true                                                                                                                                   |
-| **`showControls`**    | <code>boolean</code>                                        | Show Controls Enable (iOS, Android) default: true                                                                                                                                     |
-| **`displayMode`**     | <code>string</code>                                         | Display Mode ["all", "portrait", "landscape"] (iOS, Android) default: "all"                                                                                                           |
-| **`componentTag`**    | <code>string</code>                                         | Component Tag or DOM Element Tag (React app)                                                                                                                                          |
-| **`width`**           | <code>number</code>                                         | Player Width (mode "embedded" only)                                                                                                                                                   |
-| **`height`**          | <code>number</code>                                         | Player height (mode "embedded" only)                                                                                                                                                  |
-| **`headers`**         | <code>{ [key: string]: string; }</code>                     | Headers for the request (iOS, Android) by Manuel García Marín (https://github.com/PhantomPainX)                                                                                       |
-| **`title`**           | <code>string</code>                                         | Title shown in the player and Chromecast metadata (iOS, Android) by Manuel García Marín (https://github.com/PhantomPainX)                                                             |
-| **`smallTitle`**      | <code>string</code>                                         | Subtitle shown below the title in the player and Chromecast metadata (iOS, Android) by Manuel García Marín (https://github.com/PhantomPainX)                                          |
-| **`accentColor`**     | <code>string</code>                                         | ExoPlayer Progress Bar and Spinner color (Android) by Manuel García Marín (https://github.com/PhantomPainX) Must be a valid hex color code default: #FFFFFF                           |
-| **`chromecast`**      | <code>boolean</code>                                        | Chromecast enable/disable (iOS, Android) iOS requires Google Cast SDK setup and local network Info.plist keys. by Manuel García Marín (https://github.com/PhantomPainX) default: true |
-| **`artwork`**         | <code>string</code>                                         | Artwork url to be shown in Chromecast player (iOS, Android) by Manuel García Marín (https://github.com/PhantomPainX) default: ""                                                      |
-| **`drm`**             | <code><a href="#drmoptions">DrmOptions</a></code>           | DRM configuration for protected content (iOS: FairPlay, Android: Widevine)                                                                                                            |
+| Prop                  | Type                                                        | Description                                                                                                                                                                                                                                 |
+| --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`mode`**            | <code>string</code>                                         | Player mode - "fullscreen" - "embedded" (Web only)                                                                                                                                                                                          |
+| **`url`**             | <code>string</code>                                         | The url of the video to play                                                                                                                                                                                                                |
+| **`chromecastUrl`**   | <code>string</code>                                         | Optional override URL used when casting to Chromecast (iOS, Android). This lets you cast an alternative rendition/manifest (e.g. MPEG-DASH + Widevine) while keeping the on-device playback URL unchanged (e.g. HLS + FairPlay on iOS).     |
+| **`subtitle`**        | <code>string</code>                                         | The url of subtitle associated with the video                                                                                                                                                                                               |
+| **`language`**        | <code>string</code>                                         | The language of subtitle see https://github.com/libyal/libfwnt/wiki/Language-Code-identifiers                                                                                                                                               |
+| **`subtitleOptions`** | <code><a href="#subtitleoptions">SubTitleOptions</a></code> | SubTitle Options                                                                                                                                                                                                                            |
+| **`playerId`**        | <code>string</code>                                         | Id of DIV Element parent of the player                                                                                                                                                                                                      |
+| **`rate`**            | <code>number</code>                                         | Initial playing rate                                                                                                                                                                                                                        |
+| **`exitOnEnd`**       | <code>boolean</code>                                        | Exit on VideoEnd (iOS, Android) default: true                                                                                                                                                                                               |
+| **`loopOnEnd`**       | <code>boolean</code>                                        | Loop on VideoEnd when exitOnEnd false (iOS, Android) default: false                                                                                                                                                                         |
+| **`pipEnabled`**      | <code>boolean</code>                                        | Picture in Picture Enable (iOS, Android) default: true                                                                                                                                                                                      |
+| **`bkmodeEnabled`**   | <code>boolean</code>                                        | Background Mode Enable (iOS, Android) default: true                                                                                                                                                                                         |
+| **`audioCategory`**   | <code>'ambient' \| 'playback' \| 'moviePlayback'</code>     | iOS audio session category behavior (iOS). - "ambient": respects the iPhone silent switch (default) - "playback": ignores the iPhone silent switch - "moviePlayback": playback optimized for video and long-form AirPlay default: "ambient" |
+| **`showControls`**    | <code>boolean</code>                                        | Show Controls Enable (iOS, Android) default: true                                                                                                                                                                                           |
+| **`displayMode`**     | <code>string</code>                                         | Display Mode ["all", "portrait", "landscape"] (iOS, Android) default: "all"                                                                                                                                                                 |
+| **`componentTag`**    | <code>string</code>                                         | Component Tag or DOM Element Tag (React app)                                                                                                                                                                                                |
+| **`width`**           | <code>number</code>                                         | Player Width (mode "embedded" only)                                                                                                                                                                                                         |
+| **`height`**          | <code>number</code>                                         | Player height (mode "embedded" only)                                                                                                                                                                                                        |
+| **`headers`**         | <code>{ [key: string]: string; }</code>                     | Headers for the request (iOS, Android) by Manuel García Marín (https://github.com/PhantomPainX)                                                                                                                                             |
+| **`title`**           | <code>string</code>                                         | Title shown in the player and Chromecast metadata (iOS, Android) by Manuel García Marín (https://github.com/PhantomPainX)                                                                                                                   |
+| **`smallTitle`**      | <code>string</code>                                         | Subtitle shown below the title in the player and Chromecast metadata (iOS, Android) by Manuel García Marín (https://github.com/PhantomPainX)                                                                                                |
+| **`accentColor`**     | <code>string</code>                                         | ExoPlayer Progress Bar and Spinner color (Android) by Manuel García Marín (https://github.com/PhantomPainX) Must be a valid hex color code default: #FFFFFF                                                                                 |
+| **`chromecast`**      | <code>boolean</code>                                        | Chromecast enable/disable (iOS, Android) iOS requires Google Cast SDK setup and local network Info.plist keys. by Manuel García Marín (https://github.com/PhantomPainX) default: true                                                       |
+| **`artwork`**         | <code>string</code>                                         | Artwork url to be shown in Chromecast player (iOS, Android) by Manuel García Marín (https://github.com/PhantomPainX) default: ""                                                                                                            |
+| **`drm`**             | <code><a href="#drmoptions">DrmOptions</a></code>           | DRM configuration for protected content (iOS: FairPlay, Android: Widevine) When casting, Widevine's `certificateUrl` (license URL) is also forwarded to Chromecast receivers as `media.customData.laurl`.                                   |
 
 
 #### SubTitleOptions
@@ -498,10 +530,11 @@ Exit player
 
 #### FairPlayDrmOptions
 
-| Prop                   | Type                | Description                                                                       |
-| ---------------------- | ------------------- | --------------------------------------------------------------------------------- |
-| **`certificateUrl`**   | <code>string</code> | The URL to fetch the FairPlay certificate                                         |
-| **`contentKeySpcUrl`** | <code>string</code> | The URL to send the SPC and receive the CKC license (FairPlay license server URL) |
+| Prop                   | Type                | Description                                                                                                                        |
+| ---------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **`certificateUrl`**   | <code>string</code> | The URL to fetch the FairPlay certificate                                                                                          |
+| **`contentKeySpcUrl`** | <code>string</code> | The URL to send the SPC and receive the CKC license (FairPlay license server URL)                                                  |
+| **`assetId`**          | <code>string</code> | Optional FairPlay asset identifier used when generating the SPC. Defaults to the `skd://` content identifier from the key request. |
 
 
 #### PlayreadyDrmOptions

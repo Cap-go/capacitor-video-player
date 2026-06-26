@@ -20,6 +20,7 @@ final class VideoPlayerCastController: NSObject {
     private let title: String?
     private let smallTitle: String?
     private let artwork: String?
+    private let widevineLicenseUrl: String?
 
     private weak var player: AVPlayer?
     private weak var playerViewController: AVPlayerViewController?
@@ -52,11 +53,12 @@ final class VideoPlayerCastController: NSObject {
         return GCKCastContext.sharedInstance().sessionManager.currentCastSession?.remoteMediaClient
     }
 
-    init(videoUrl: String, title: String?, smallTitle: String?, artwork: String?) {
+    init(videoUrl: String, title: String?, smallTitle: String?, artwork: String?, widevineLicenseUrl: String?) {
         self.videoUrl = videoUrl
         self.title = title
         self.smallTitle = smallTitle
         self.artwork = artwork
+        self.widevineLicenseUrl = widevineLicenseUrl
         super.init()
     }
 
@@ -529,6 +531,10 @@ private extension VideoPlayerCastController {
         builder.streamType = .buffered
         builder.contentType = contentType(for: url)
         builder.metadata = metadata
+        if let widevineLicenseUrl = widevineLicenseUrl,
+           !widevineLicenseUrl.isEmpty {
+            builder.customData = ["laurl": widevineLicenseUrl]
+        }
         if let duration = player?.currentItem?.duration.seconds,
            duration.isFinite,
            duration > 0 {
@@ -737,7 +743,7 @@ final class VideoPlayerCastController {
         return false
     }
 
-    init(videoUrl: String, title: String?, smallTitle: String?, artwork: String?) {
+    init(videoUrl: String, title: String?, smallTitle: String?, artwork: String?, widevineLicenseUrl: String?) {
         _ = videoUrl
         _ = title
         _ = smallTitle

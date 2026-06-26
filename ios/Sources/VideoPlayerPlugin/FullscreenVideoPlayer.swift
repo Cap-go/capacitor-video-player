@@ -14,10 +14,14 @@ class FullscreenVideoPlayer: NSObject {
     private var pipEnabled: Bool
     private var showControls: Bool
     private var chromecast: Bool
+    private var chromecastUrl: String?
     private var title: String?
     private var smallTitle: String?
     private var artwork: String?
     private var rate: Float
+    private var audioCategory: String?
+    private var didActivateAudioSession: Bool = false
+    private var didEmitExit: Bool = false
     private var timeObserver: Any?
     private var onPlay: (() -> Void)?
     private var onPause: (() -> Void)?
@@ -26,6 +30,8 @@ class FullscreenVideoPlayer: NSObject {
     private var onExit: ((Double) -> Void)?
     private var fairplayCertificateUrl: String?
     private var fairplayContentKeySpcUrl: String?
+    private var fairplayAssetId: String?
+    private var widevineLicenseUrl: String?
     private var contentKeySession: AVContentKeySession?
     private var castController: VideoPlayerCastController?
     private weak var presentingViewController: UIViewController?
@@ -42,13 +48,17 @@ class FullscreenVideoPlayer: NSObject {
         pipEnabled: Bool,
         showControls: Bool,
         chromecast: Bool,
+        chromecastUrl: String? = nil,
         title: String? = nil,
         smallTitle: String? = nil,
         artwork: String? = nil,
         subtitleUrl: String? = nil,
         subtitleLanguage: String? = nil,
         fairplayCertificateUrl: String? = nil,
-        fairplayContentKeySpcUrl: String? = nil
+        fairplayContentKeySpcUrl: String? = nil,
+        fairplayAssetId: String? = nil,
+        widevineLicenseUrl: String? = nil,
+        audioCategory: String? = nil
     ) {
         self.playerId = playerId
         self.videoUrl = url
@@ -58,6 +68,7 @@ class FullscreenVideoPlayer: NSObject {
         self.pipEnabled = pipEnabled
         self.showControls = showControls
         self.chromecast = chromecast
+        self.chromecastUrl = chromecastUrl
         self.title = title
         self.smallTitle = smallTitle
         self.artwork = artwork
@@ -65,6 +76,9 @@ class FullscreenVideoPlayer: NSObject {
         self.subtitleLanguage = subtitleLanguage
         self.fairplayCertificateUrl = fairplayCertificateUrl
         self.fairplayContentKeySpcUrl = fairplayContentKeySpcUrl
+        self.fairplayAssetId = fairplayAssetId
+        self.widevineLicenseUrl = widevineLicenseUrl
+        self.audioCategory = audioCategory
         super.init()
     }
 
@@ -73,6 +87,8 @@ class FullscreenVideoPlayer: NSObject {
             completion()
             return
         }
+
+        configureAudioSession()
 
         guard let subtitleUrlString = subtitleUrl,
               !subtitleUrlString.isEmpty,
@@ -113,7 +129,8 @@ class FullscreenVideoPlayer: NSObject {
         hlsResourceLoader = result.resourceLoader
         let asset = result.asset
 
-        if let certUrl = fairplayCertificateUrl, !certUrl.isEmpty {
+        if let certUrl = fairplayCertificateUrl, !certUrl.isEmpty,
+           let spcUrl = fairplayContentKeySpcUrl, !spcUrl.isEmpty {
             let session = AVContentKeySession(keySystem: .fairPlayStreaming)
             session.setDelegate(self, queue: DispatchQueue.global(qos: .default))
             session.addContentKeyRecipient(asset)
@@ -132,9 +149,7 @@ class FullscreenVideoPlayer: NSObject {
         playerViewController?.player = player
         playerViewController?.showsPlaybackControls = showControls
         playerViewController?.allowsPictureInPicturePlayback = pipEnabled
-        if pipEnabled {
-            playerViewController?.delegate = self
-        }
+        playerViewController?.delegate = self
 
         setupChromecast()
         setupObservers()
@@ -147,11 +162,19 @@ class FullscreenVideoPlayer: NSObject {
             return
         }
 
+        let castVideoUrl: String
+        if let chromecastUrl = chromecastUrl, !chromecastUrl.isEmpty {
+            castVideoUrl = chromecastUrl
+        } else {
+            castVideoUrl = videoUrl
+        }
+
         castController = VideoPlayerCastController(
-            videoUrl: videoUrl,
+            videoUrl: castVideoUrl,
             title: title,
             smallTitle: smallTitle,
-            artwork: artwork
+            artwork: artwork,
+            widevineLicenseUrl: widevineLicenseUrl
         )
         castController?.setOnPlay { [weak self] in
             self?.onPlay?()
@@ -235,23 +258,55 @@ class FullscreenVideoPlayer: NSObject {
 
         presentingViewController = viewController
         viewController.present(playerVC, animated: true) {
+            playerVC.presentationController?.delegate = self
             self.play()
+            completion()
+        }
+    }
+
+
+    func show(on viewController: UIViewController, completion: @escaping () -> Void) {
+        guard let playerVC = playerViewController else {
+            completion()
+            return
+        }
+        if playerVC.presentingViewController != nil {
+            completion()
+            return
+        }
+        presentingViewController = viewController
+        viewController.present(playerVC, animated: true) {
+            playerVC.presentationController?.delegate = self
+            completion()
+        }
+    }
+
+    func hide(completion: @escaping () -> Void) {
+        guard let playerVC = playerViewController else {
+            completion()
+            return
+        }
+        if playerVC.presentingViewController == nil {
+            completion()
+            return
+        }
+        playerVC.dismiss(animated: true) {
             completion()
         }
     }
 
     func dismiss() {
         let currentTime = getCurrentTime()
-        castController?.detach(stopRemoteMedia: true)
         playerViewController?.dismiss(animated: true) { [weak self] in
-            self?.cleanup()
-            self?.onExit?(currentTime)
+            self?.emitExitIfNeeded(currentTime: currentTime)
         }
     }
 
-    private func cleanup() {
-        castController?.detach(stopRemoteMedia: false)
+    private func cleanup(stopRemoteMedia: Bool = false) {
+        castController?.detach(stopRemoteMedia: stopRemoteMedia)
         castController = nil
+        contentKeySession?.setDelegate(nil, queue: nil)
+        contentKeySession = nil
         hlsResourceLoader = nil
         if let observer = timeObserver {
             player?.removeObserver(self, forKeyPath: "rate")
@@ -264,6 +319,58 @@ class FullscreenVideoPlayer: NSObject {
         player = nil
         playerItem = nil
         playerViewController = nil
+        deactivateAudioSessionIfNeeded()
+    }
+
+    private func configureAudioSession() {
+        guard let audioCategory else { return }
+
+        let session = AVAudioSession.sharedInstance()
+        do {
+            switch audioCategory {
+            case "ambient":
+                try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+            case "playback":
+                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            case "moviePlayback":
+                if #available(iOS 13.0, *) {
+                    try session.setCategory(
+                        .playback,
+                        mode: .moviePlayback,
+                        policy: .longFormVideo,
+                        options: [.mixWithOthers]
+                    )
+                } else {
+                    try session.setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
+                }
+            default:
+                return
+            }
+
+            try session.setActive(true)
+            didActivateAudioSession = true
+        } catch {
+            print("Error configuring AVAudioSession: \(error)")
+        }
+    }
+
+    private func deactivateAudioSessionIfNeeded() {
+        guard didActivateAudioSession else { return }
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+            didActivateAudioSession = false
+        } catch {
+            print("Error deactivating AVAudioSession: \(error)")
+        }
+    }
+
+    private func emitExitIfNeeded(currentTime: Double? = nil) {
+        guard !didEmitExit else { return }
+        didEmitExit = true
+
+        let time = currentTime ?? getCurrentTime()
+        cleanup(stopRemoteMedia: true)
+        onExit?(time)
     }
 
     // MARK: - Playback Control
@@ -396,6 +503,19 @@ class FullscreenVideoPlayer: NSObject {
 // MARK: - AVPlayerViewControllerDelegate (Picture in Picture)
 
 extension FullscreenVideoPlayer: AVPlayerViewControllerDelegate {
+    func playerViewControllerWillEndFullScreenPresentation(
+        _ playerViewController: AVPlayerViewController,
+        withAnimationCoordinator coordinator: UIViewControllerTransitionCoordinator
+    ) {
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            self?.emitExitIfNeeded()
+        }
+    }
+
+    func playerViewControllerDidEndFullScreenPresentation(_ playerViewController: AVPlayerViewController) {
+        emitExitIfNeeded()
+    }
+
     func playerViewControllerShouldAutomaticallyDismissAtPictureInPictureStart(
         _ playerViewController: AVPlayerViewController
     ) -> Bool {
@@ -423,6 +543,14 @@ extension FullscreenVideoPlayer: AVPlayerViewControllerDelegate {
     }
 }
 
+// MARK: - UIAdaptivePresentationControllerDelegate
+
+extension FullscreenVideoPlayer: UIAdaptivePresentationControllerDelegate {
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        emitExitIfNeeded()
+    }
+}
+
 // MARK: - AVContentKeySessionDelegate (FairPlay DRM)
 
 extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
@@ -432,6 +560,62 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
 
     func contentKeySession(_ session: AVContentKeySession, didProvideRenewingContentKeyRequest keyRequest: AVContentKeyRequest) {
         handleFairPlayKeyRequest(keyRequest)
+    }
+
+
+    private func fairPlayContentIdentifierData(from identifier: Any?) -> Data? {
+        if let data = identifier as? Data {
+            return data.isEmpty ? nil : data
+        }
+
+        let identifierString: String?
+        if let url = identifier as? URL {
+            identifierString = url.absoluteString
+        } else if let string = identifier as? String {
+            identifierString = string
+        } else {
+            identifierString = nil
+        }
+
+        guard var string = identifierString?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !string.isEmpty else {
+            return nil
+        }
+
+        if string.hasPrefix("skd://") {
+            string.removeFirst("skd://".count)
+        } else if string.hasPrefix("skd:") {
+            string.removeFirst("skd:".count)
+        }
+
+        while string.hasPrefix("/") {
+            string.removeFirst()
+        }
+
+        return string.data(using: .utf8)
+    }
+
+    private func normalizeFairPlayCkcData(_ data: Data) -> Data {
+        if let object = try? JSONSerialization.jsonObject(with: data),
+           let dict = object as? [String: Any] {
+            let candidateKeys = ["ckc", "CKC", "license", "License", "data"]
+            for key in candidateKeys {
+                if let value = dict[key] as? String,
+                   let decoded = Data(base64Encoded: value) {
+                    return decoded
+                }
+            }
+        }
+
+        if let string = String(data: data, encoding: .utf8) {
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            if let decoded = Data(base64Encoded: trimmed) {
+                return decoded
+            }
+        }
+
+        return data
     }
 
     private func handleFairPlayKeyRequest(_ keyRequest: AVContentKeyRequest) {
@@ -447,7 +631,17 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
         }
 
         // 1. Fetch the FairPlay certificate
-        URLSession.shared.dataTask(with: certUrl) { certData, _, certError in
+        URLSession.shared.dataTask(with: certUrl) { [self] certData, certResponse, certError in
+            if let httpResponse = certResponse as? HTTPURLResponse,
+               !(200...299).contains(httpResponse.statusCode) {
+                keyRequest.processContentKeyResponseError(
+                    NSError(domain: "VideoPlayer", code: -2, userInfo: [
+                        NSLocalizedDescriptionKey: "Failed to fetch FairPlay certificate (HTTP \(httpResponse.statusCode))"
+                    ])
+                )
+                return
+            }
+
             guard let certData = certData else {
                 keyRequest.processContentKeyResponseError(
                     certError ?? NSError(domain: "VideoPlayer", code: -2,
@@ -457,11 +651,17 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
             }
 
             // 2. Create SPC (Server Playback Context) using the certificate
-            // contentIdentifier is nil here; override if your license server requires
-            // a specific content ID extracted from the asset URL scheme
+            let contentIdentifier: Data? = {
+                if let assetId = fairplayAssetId?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !assetId.isEmpty {
+                    return assetId.data(using: .utf8)
+                }
+                return fairPlayContentIdentifierData(from: keyRequest.identifier)
+            }()
+
             keyRequest.makeStreamingContentKeyRequestData(
                 forApp: certData,
-                contentIdentifier: nil,
+                contentIdentifier: contentIdentifier,
                 options: [AVContentKeyRequestProtocolVersionsKey: [1]]
             ) { spcData, spcError in
                 guard let spcData = spcData else {
@@ -478,7 +678,17 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
                 spcRequest.httpBody = spcData
                 spcRequest.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
 
-                URLSession.shared.dataTask(with: spcRequest) { ckcData, _, ckcError in
+                URLSession.shared.dataTask(with: spcRequest) { [self] ckcData, ckcResponse, ckcError in
+                    if let httpResponse = ckcResponse as? HTTPURLResponse,
+                       !(200...299).contains(httpResponse.statusCode) {
+                        keyRequest.processContentKeyResponseError(
+                            NSError(domain: "VideoPlayer", code: -3, userInfo: [
+                                NSLocalizedDescriptionKey: "Failed to obtain FairPlay CKC (HTTP \(httpResponse.statusCode))"
+                            ])
+                        )
+                        return
+                    }
+
                     guard let ckcData = ckcData else {
                         keyRequest.processContentKeyResponseError(
                             ckcError ?? NSError(domain: "VideoPlayer", code: -3,
@@ -488,7 +698,8 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
                     }
 
                     // 4. Provide the CKC to AVFoundation to decrypt the content
-                    let keyResponse = AVContentKeyResponse(fairPlayStreamingKeyResponseData: ckcData)
+                    let normalizedCkcData = normalizeFairPlayCkcData(ckcData)
+                    let keyResponse = AVContentKeyResponse(fairPlayStreamingKeyResponseData: normalizedCkcData)
                     keyRequest.processContentKeyResponse(keyResponse)
                 }.resume()
             }

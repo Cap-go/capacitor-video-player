@@ -561,6 +561,44 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
       value: true,
     });
   }
+
+  async hidePlayer(): Promise<capVideoPlayerResult> {
+    const playerId = this._players['fullscreen'] ? 'fullscreen' : Object.keys(this._players)[0];
+    if (!playerId || !this._players[playerId]) {
+      return Promise.resolve({
+        method: 'hidePlayer',
+        result: false,
+        message: 'No active player',
+      });
+    }
+    if (typeof this._players[playerId].hide === 'function') {
+      this._players[playerId].hide();
+    }
+    return Promise.resolve({
+      method: 'hidePlayer',
+      result: true,
+      value: true,
+    });
+  }
+
+  async showPlayer(): Promise<capVideoPlayerResult> {
+    const playerId = this._players['fullscreen'] ? 'fullscreen' : Object.keys(this._players)[0];
+    if (!playerId || !this._players[playerId]) {
+      return Promise.resolve({
+        method: 'showPlayer',
+        result: false,
+        message: 'No active player',
+      });
+    }
+    if (typeof this._players[playerId].show === 'function') {
+      this._players[playerId].show();
+    }
+    return Promise.resolve({
+      method: 'showPlayer',
+      result: true,
+      value: true,
+    });
+  }
   private checkSize(options: capVideoPlayerOptions): IPlayerSize {
     const playerSize: IPlayerSize = {
       width: options.width ? options.width : 320,
