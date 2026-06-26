@@ -521,7 +521,6 @@ extension VideoPlayerPlugin {
     }
 }
 
-
 extension VideoPlayerPlugin {
     @objc func hidePlayer(_ call: CAPPluginCall) {
         guard let playerId = currentPlayerId,

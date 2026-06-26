@@ -10,8 +10,8 @@ import android.content.res.Configuration;
 import android.os.Build;
 import android.util.Log;
 import android.view.View;
-import android.view.WindowManager;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 import androidx.fragment.app.Fragment;
@@ -976,7 +976,6 @@ public class VideoPlayerPlugin extends Plugin {
             );
     }
 
-
     public boolean isDeviceTV(Context context) {
         UiModeManager uiManager = (UiModeManager) context.getSystemService(Context.UI_MODE_SERVICE);
         return uiManager != null && uiManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;
@@ -1166,10 +1165,10 @@ public class VideoPlayerPlugin extends Plugin {
                     if (videoId != -1) {
                         Log.v(TAG, "§§§§ Notification videoPathInternalReady chromecast: " + chromecast);
                         createFullScreenFragment(
-                    call,
-                    videoPath,
-                    chromecastUrl,
-                    videoRate,
+                            call,
+                            videoPath,
+                            chromecastUrl,
+                            videoRate,
                             exitOnEnd,
                             loopOnEnd,
                             pipEnabled,

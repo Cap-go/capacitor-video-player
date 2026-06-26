@@ -264,7 +264,6 @@ class FullscreenVideoPlayer: NSObject {
         }
     }
 
-
     func show(on viewController: UIViewController, completion: @escaping () -> Void) {
         guard let playerVC = playerViewController else {
             completion()
@@ -561,7 +560,6 @@ extension FullscreenVideoPlayer: AVContentKeySessionDelegate {
     func contentKeySession(_ session: AVContentKeySession, didProvideRenewingContentKeyRequest keyRequest: AVContentKeyRequest) {
         handleFairPlayKeyRequest(keyRequest)
     }
-
 
     private func fairPlayContentIdentifierData(from identifier: Any?) -> Data? {
         if let data = identifier as? Data {

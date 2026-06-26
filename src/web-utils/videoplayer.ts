@@ -114,7 +114,6 @@ export class VideoPlayer {
     return;
   }
 
-
   public hide(): void {
     if (this.isHidden) return;
     this.isHidden = true;
