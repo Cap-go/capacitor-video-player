@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import UniformTypeIdentifiers
 
 enum HLSVideoAssetFactory {
     static func isHLSStream(_ url: URL) -> Bool {
@@ -43,7 +44,7 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
     static let videoScheme = "capgohls"
     static let subtitlePlaylistScheme = "capgohls-sub"
     private static let subtitleGroupID = "capgosubs"
-    private static let mpegURLContentType = "application/vnd.apple.mpegurl"
+    private static let mpegURLContentType = UTType.m3uPlaylist.identifier
 
     private let originalVideoURL: URL
     private let subtitleURL: URL
@@ -111,16 +112,20 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         let manifest = String(data: data, encoding: .utf8) ?? ""
 
         guard hasStreamInfTags(manifest) else {
-            let contentType = (response as? HTTPURLResponse)?.mimeType
+            let contentType = Self.contentTypeIdentifier(from: response)
             return LoadedResource(data: data, contentType: contentType)
         }
 
         guard let subtitlePlaylistURI = Self.subtitlePlaylistURL(for: originalVideoURL)?.absoluteString else {
-            let contentType = (response as? HTTPURLResponse)?.mimeType ?? Self.mpegURLContentType
+            let contentType = Self.contentTypeIdentifier(from: response) ?? Self.mpegURLContentType
             return LoadedResource(data: data, contentType: contentType)
         }
 
-        let modified = injectSubtitle(into: manifest, subtitlePlaylistURI: subtitlePlaylistURI)
+        let modified = injectSubtitle(
+            into: manifest,
+            subtitlePlaylistURI: subtitlePlaylistURI,
+            baseURL: response.url ?? fetchURL
+        )
         return LoadedResource(data: Data(modified.utf8), contentType: Self.mpegURLContentType)
     }
 
@@ -138,15 +143,22 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         manifest.contains("#EXT-X-STREAM-INF")
     }
 
-    private func absoluteURI(for uri: String) -> String {
+    private static func contentTypeIdentifier(from response: URLResponse) -> String? {
+        guard let mimeType = (response as? HTTPURLResponse)?.mimeType else {
+            return nil
+        }
+        return UTType(mimeType: mimeType)?.identifier
+    }
+
+    private func absoluteURI(for uri: String, relativeTo baseURL: URL) -> String {
         let trimmed = uri.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmed, relativeTo: originalVideoURL)?.absoluteURL else {
+        guard let url = URL(string: trimmed, relativeTo: baseURL)?.absoluteURL else {
             return trimmed
         }
         return url.absoluteString
     }
 
-    private func injectSubtitle(into manifest: String, subtitlePlaylistURI: String) -> String {
+    private func injectSubtitle(into manifest: String, subtitlePlaylistURI: String, baseURL: URL) -> String {
         let mediaTag = """
         #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="\(Self.subtitleGroupID)",NAME="Subtitles",DEFAULT=YES,AUTOSELECT=YES,FORCED=NO,LANGUAGE="\(language)",URI="\(subtitlePlaylistURI)"
         """
@@ -173,7 +185,7 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
             }
 
             if expectingVariantURI, !line.hasPrefix("#"), !line.isEmpty {
-                result.append(absoluteURI(for: line))
+                result.append(absoluteURI(for: line, relativeTo: baseURL))
                 expectingVariantURI = false
                 continue
             }
