@@ -29,7 +29,9 @@ public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "stopAllPlayers", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showController", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "isControllerIsFullyVisible", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "exitPlayer", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "exitPlayer", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "hidePlayer", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "showPlayer", returnType: CAPPluginReturnPromise)
     ]
 
     private var videoPlayers: [String: FullscreenVideoPlayer] = [:]
@@ -79,6 +81,8 @@ extension VideoPlayerPlugin {
         let title = call.getString("title")
         let smallTitle = call.getString("smallTitle")
         let artwork = call.getString("artwork")
+        let chromecastUrl = call.getString("chromecastUrl")
+        let audioCategory = call.getString("audioCategory")
         let subtitle = call.getString("subtitle")
         let language = call.getString("language")
 
@@ -87,6 +91,9 @@ extension VideoPlayerPlugin {
         let fairplay = drm?["fairplay"] as? [String: Any]
         let fairplayCertificateUrl = fairplay?["certificateUrl"] as? String
         let fairplayContentKeySpcUrl = fairplay?["contentKeySpcUrl"] as? String
+        let fairplayAssetId = fairplay?["assetId"] as? String
+        let widevine = drm?["widevine"] as? [String: Any]
+        let widevineLicenseUrl = widevine?["certificateUrl"] as? String
 
         // Create video player
         let player = FullscreenVideoPlayer(
@@ -98,13 +105,17 @@ extension VideoPlayerPlugin {
             pipEnabled: pipEnabled,
             showControls: showControls,
             chromecast: chromecast,
+            chromecastUrl: chromecastUrl,
             title: title,
             smallTitle: smallTitle,
             artwork: artwork,
             subtitleUrl: subtitle,
             subtitleLanguage: language,
             fairplayCertificateUrl: fairplayCertificateUrl,
-            fairplayContentKeySpcUrl: fairplayContentKeySpcUrl
+            fairplayContentKeySpcUrl: fairplayContentKeySpcUrl,
+            fairplayAssetId: fairplayAssetId,
+            widevineLicenseUrl: widevineLicenseUrl,
+            audioCategory: audioCategory
         )
 
         // Present player
@@ -507,5 +518,60 @@ extension VideoPlayerPlugin {
             "method": "exitPlayer",
             "value": true
         ])
+    }
+}
+
+extension VideoPlayerPlugin {
+    @objc func hidePlayer(_ call: CAPPluginCall) {
+        guard let playerId = currentPlayerId,
+              let player = videoPlayers[playerId] else {
+            call.resolve([
+                "result": false,
+                "method": "hidePlayer",
+                "message": "No active player"
+            ])
+            return
+        }
+
+        DispatchQueue.main.async {
+            player.hide {
+                call.resolve([
+                    "result": true,
+                    "method": "hidePlayer",
+                    "value": true
+                ])
+            }
+        }
+    }
+
+    @objc func showPlayer(_ call: CAPPluginCall) {
+        guard let playerId = currentPlayerId,
+              let player = videoPlayers[playerId] else {
+            call.resolve([
+                "result": false,
+                "method": "showPlayer",
+                "message": "No active player"
+            ])
+            return
+        }
+
+        DispatchQueue.main.async {
+            guard let viewController = self.bridge?.viewController else {
+                call.resolve([
+                    "result": false,
+                    "method": "showPlayer",
+                    "message": "Unable to get view controller"
+                ])
+                return
+            }
+
+            player.show(on: viewController) {
+                call.resolve([
+                    "result": true,
+                    "method": "showPlayer",
+                    "value": true
+                ])
+            }
+        }
     }
 }

@@ -84,6 +84,16 @@ export interface VideoPlayerPlugin {
    *
    */
   exitPlayer(): Promise<capVideoPlayerResult>;
+  /**
+   * Hide the currently presented player UI without stopping playback (native fullscreen).
+   *
+   * Call `showPlayer()` to show it again.
+   */
+  hidePlayer(): Promise<capVideoPlayerResult>;
+  /**
+   * Show again a previously hidden player UI (native fullscreen).
+   */
+  showPlayer(): Promise<capVideoPlayerResult>;
 }
 export interface capEchoOptions {
   /**
@@ -103,6 +113,13 @@ export interface capVideoPlayerOptions {
    * The url of the video to play
    */
   url?: string;
+  /**
+   * Optional override URL used when casting to Chromecast (iOS, Android).
+   *
+   * This lets you cast an alternative rendition/manifest (e.g. MPEG-DASH + Widevine)
+   * while keeping the on-device playback URL unchanged (e.g. HLS + FairPlay on iOS).
+   */
+  chromecastUrl?: string;
   /**
    * The url of subtitle associated with the video
    */
@@ -144,6 +161,14 @@ export interface capVideoPlayerOptions {
    * default: true
    */
   bkmodeEnabled?: boolean;
+  /**
+   * iOS audio session category behavior (iOS).
+   * - "ambient": respects the iPhone silent switch (default)
+   * - "playback": ignores the iPhone silent switch
+   * - "moviePlayback": playback optimized for video and long-form AirPlay
+   * default: "ambient"
+   */
+  audioCategory?: 'ambient' | 'playback' | 'moviePlayback';
   /**
    * Show Controls Enable (iOS, Android)
    * default: true
@@ -205,6 +230,9 @@ export interface capVideoPlayerOptions {
   artwork?: string;
   /**
    * DRM configuration for protected content (iOS: FairPlay, Android: Widevine)
+   *
+   * When casting, Widevine's `certificateUrl` (license URL) is also forwarded to Chromecast
+   * receivers as `media.customData.laurl`.
    */
   drm?: DrmOptions;
 }
@@ -323,6 +351,11 @@ export interface FairPlayDrmOptions {
    * The URL to send the SPC and receive the CKC license (FairPlay license server URL)
    */
   contentKeySpcUrl?: string;
+  /**
+   * Optional FairPlay asset identifier used when generating the SPC.
+   * Defaults to the `skd://` content identifier from the key request.
+   */
+  assetId?: string;
 }
 export interface PlayreadyDrmOptions {
   /**

@@ -9,7 +9,9 @@ import android.content.res.Configuration;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.util.Log;
+import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 import androidx.fragment.app.Fragment;
@@ -78,6 +80,7 @@ public class VideoPlayerPlugin extends Plugin {
     private Boolean chromecast = true;
     private String artwork;
     private String url;
+    private String chromecastUrl;
     private String playerId;
     private String subtitle = "";
     private String language = "";
@@ -187,6 +190,11 @@ public class VideoPlayerPlugin extends Plugin {
                 call.resolve(ret);
                 return;
             }
+            String _chromecastUrl = null;
+            if (call.getData().has("chromecastUrl")) {
+                _chromecastUrl = call.getString("chromecastUrl");
+            }
+            chromecastUrl = _chromecastUrl;
             if (call.getData().has("subtitle")) {
                 subtitle = call.getString("subtitle");
             }
@@ -898,6 +906,76 @@ public class VideoPlayerPlugin extends Plugin {
             );
     }
 
+    @PluginMethod
+    public void hidePlayer(PluginCall call) {
+        this.call = call;
+        bridge
+            .getActivity()
+            .runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "hidePlayer");
+                        FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
+                        if (frameLayoutView != null && fsFragment != null) {
+                            frameLayoutView.setVisibility(View.GONE);
+                            Activity activity = getBridge().getActivity();
+                            activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                            activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                            activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+                            ret.put("result", true);
+                            ret.put("value", true);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen player is not defined");
+                        }
+                        call.resolve(ret);
+                    }
+                }
+            );
+    }
+
+    @PluginMethod
+    public void showPlayer(PluginCall call) {
+        this.call = call;
+        bridge
+            .getActivity()
+            .runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "showPlayer");
+                        FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
+                        if (frameLayoutView != null && fsFragment != null) {
+                            frameLayoutView.setVisibility(View.VISIBLE);
+                            Activity activity = getBridge().getActivity();
+                            activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                            activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                            activity
+                                .getWindow()
+                                .getDecorView()
+                                .setSystemUiVisibility(
+                                    View.SYSTEM_UI_FLAG_LOW_PROFILE |
+                                        View.SYSTEM_UI_FLAG_FULLSCREEN |
+                                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                                        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                                );
+                            ret.put("result", true);
+                            ret.put("value", true);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen player is not defined");
+                        }
+                        call.resolve(ret);
+                    }
+                }
+            );
+    }
+
     public boolean isDeviceTV(Context context) {
         UiModeManager uiManager = (UiModeManager) context.getSystemService(Context.UI_MODE_SERVICE);
         return uiManager != null && uiManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;
@@ -922,6 +1000,7 @@ public class VideoPlayerPlugin extends Plugin {
                 createFullScreenFragment(
                     call,
                     videoPath,
+                    chromecastUrl,
                     videoRate,
                     exitOnEnd,
                     loopOnEnd,
@@ -1088,6 +1167,7 @@ public class VideoPlayerPlugin extends Plugin {
                         createFullScreenFragment(
                             call,
                             videoPath,
+                            chromecastUrl,
                             videoRate,
                             exitOnEnd,
                             loopOnEnd,
@@ -1128,6 +1208,7 @@ public class VideoPlayerPlugin extends Plugin {
     private void createFullScreenFragment(
         final PluginCall call,
         String videoPath,
+        String chromecastUrl,
         Float videoRate,
         Boolean exitOnEnd,
         Boolean loopOnEnd,
@@ -1154,6 +1235,7 @@ public class VideoPlayerPlugin extends Plugin {
 
         fsFragment = implementation.createFullScreenFragment(
             videoPath,
+            chromecastUrl,
             videoRate,
             exitOnEnd,
             loopOnEnd,

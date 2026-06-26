@@ -14,6 +14,7 @@ public class VideoPlayer {
 
     public FullscreenExoPlayerFragment createFullScreenFragment(
         String videoPath,
+        String chromecastUrl,
         Float videoRate,
         Boolean exitOnEnd,
         Boolean loopOnEnd,
@@ -39,6 +40,7 @@ public class VideoPlayer {
         FullscreenExoPlayerFragment fsFragment = new FullscreenExoPlayerFragment();
 
         fsFragment.videoPath = videoPath;
+        fsFragment.chromecastUrl = chromecastUrl;
         fsFragment.videoRate = videoRate;
         fsFragment.exitOnEnd = exitOnEnd;
         fsFragment.loopOnEnd = loopOnEnd;
