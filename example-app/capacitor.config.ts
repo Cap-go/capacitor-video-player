@@ -4,7 +4,7 @@ import pkg from './package.json';
 
 const config: CapacitorConfig = {
   appId: 'app.capgo.video.player',
-  appName: 'Video Player Example',
+  appName: '@capgo/capacitor-video-player',
   webDir: 'dist',
   plugins: {
     SplashScreen: {
