@@ -482,8 +482,9 @@ Show again a previously hidden player UI (native fullscreen).
 | **`mode`**            | <code>string</code>                                         | Player mode - "fullscreen" - "embedded" (Web only)                                                                                                                                                                                          |
 | **`url`**             | <code>string</code>                                         | The url of the video to play                                                                                                                                                                                                                |
 | **`chromecastUrl`**   | <code>string</code>                                         | Optional override URL used when casting to Chromecast (iOS, Android). This lets you cast an alternative rendition/manifest (e.g. MPEG-DASH + Widevine) while keeping the on-device playback URL unchanged (e.g. HLS + FairPlay on iOS).     |
-| **`subtitle`**        | <code>string</code>                                         | The url of subtitle associated with the video                                                                                                                                                                                               |
-| **`language`**        | <code>string</code>                                         | The language of subtitle see https://github.com/libyal/libfwnt/wiki/Language-Code-identifiers                                                                                                                                               |
+| **`subtitle`**        | <code>string</code>                                         | The url of subtitle associated with the video Prefer `subtitles` when providing more than one track. Kept for backward compatibility.                                                                                                       |
+| **`language`**        | <code>string</code>                                         | The language of subtitle see https://github.com/libyal/libfwnt/wiki/Language-Code-identifiers Prefer `subtitles` when providing more than one track. Kept for backward compatibility.                                                       |
+| **`subtitles`**       | <code>VideoSubtitle[]</code>                                | Multiple subtitle tracks (iOS, Android). When provided, takes precedence over `subtitle` / `language`.                                                                                                                                      |
 | **`subtitleOptions`** | <code><a href="#subtitleoptions">SubTitleOptions</a></code> | SubTitle Options                                                                                                                                                                                                                            |
 | **`playerId`**        | <code>string</code>                                         | Id of DIV Element parent of the player                                                                                                                                                                                                      |
 | **`rate`**            | <code>number</code>                                         | Initial playing rate                                                                                                                                                                                                                        |
@@ -504,6 +505,14 @@ Show again a previously hidden player UI (native fullscreen).
 | **`chromecast`**      | <code>boolean</code>                                        | Chromecast enable/disable (iOS, Android) iOS requires Google Cast SDK setup and local network Info.plist keys. by Manuel García Marín (https://github.com/PhantomPainX) default: true                                                       |
 | **`artwork`**         | <code>string</code>                                         | Artwork url to be shown in Chromecast player (iOS, Android) by Manuel García Marín (https://github.com/PhantomPainX) default: ""                                                                                                            |
 | **`drm`**             | <code><a href="#drmoptions">DrmOptions</a></code>           | DRM configuration for protected content (iOS: FairPlay, Android: Widevine) When casting, Widevine's `certificateUrl` (license URL) is also forwarded to Chromecast receivers as `media.customData.laurl`.                                   |
+
+
+#### VideoSubtitle
+
+| Prop           | Type                | Description                                                                                       |
+| -------------- | ------------------- | ------------------------------------------------------------------------------------------------- |
+| **`subtitle`** | <code>string</code> | The url of the subtitle file (vtt, srt, ...)                                                      |
+| **`language`** | <code>string</code> | The language of the subtitle see https://github.com/libyal/libfwnt/wiki/Language-Code-identifiers |
 
 
 #### SubTitleOptions

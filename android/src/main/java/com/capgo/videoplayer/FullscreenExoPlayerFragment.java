@@ -114,6 +114,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     public String chromecastUrl;
     public Float videoRate;
     public String playerId;
+    public List<VideoSubtitleTrack> subtitleTracks;
     public String subTitle;
     public String language;
     public JSObject subTitleOptions;
@@ -154,6 +155,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private long playbackPosition = 0;
     private Uri uri = null;
     private Uri sturi = null;
+    private List<Uri> subtitleUris = new ArrayList<>();
     private ProgressBar Pbar;
     private View view;
     private ImageButton closeBtn;
@@ -397,15 +399,31 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
         if (!isInternal) {
             uri = Uri.parse(videoPath);
-            sturi = subTitle != null ? Uri.parse(subTitle) : null;
+            subtitleUris = new ArrayList<>();
+            if (subtitleTracks != null) {
+                for (VideoSubtitleTrack track : subtitleTracks) {
+                    if (track != null && track.url != null && !track.url.isEmpty()) {
+                        subtitleUris.add(Uri.parse(track.url));
+                    }
+                }
+            }
+            sturi = subtitleUris.isEmpty() ? null : subtitleUris.get(0);
+            if (sturi == null && subTitle != null && !subTitle.isEmpty()) {
+                sturi = Uri.parse(subTitle);
+                subtitleUris.add(sturi);
+            }
 
-            stForeColor = subTitleOptions.has("foregroundColor") ? subTitleOptions.getString("foregroundColor") : "rgba(255,255,255,1)";
-            stBackColor = subTitleOptions.has("backgroundColor") ? subTitleOptions.getString("backgroundColor") : "rgba(0,0,0,1)";
-            stFontSize = subTitleOptions.has("fontSize") ? subTitleOptions.getInteger("fontSize") : 16;
+            stForeColor = subTitleOptions != null && subTitleOptions.has("foregroundColor")
+                ? subTitleOptions.getString("foregroundColor")
+                : "rgba(255,255,255,1)";
+            stBackColor = subTitleOptions != null && subTitleOptions.has("backgroundColor")
+                ? subTitleOptions.getString("backgroundColor")
+                : "rgba(0,0,0,1)";
+            stFontSize = subTitleOptions != null && subTitleOptions.has("fontSize") ? subTitleOptions.getInteger("fontSize") : 16;
             // get video type
             vType = getVideoType(uri);
             Log.v(TAG, "display url: " + uri);
-            Log.v(TAG, "display subtitle url: " + sturi);
+            Log.v(TAG, "display subtitle urls: " + subtitleUris.size());
             Log.v(TAG, "display isTV: " + isTV);
             Log.v(TAG, "display vType: " + vType);
         }
@@ -648,7 +666,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         }
 
         isInPictureInPictureMode = activity.isInPictureInPictureMode();
-        if (sturi != null) {
+        if (!subtitleUris.isEmpty()) {
             setSubtitle(true);
         }
         play();
@@ -688,7 +706,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (inPictureInPictureMode) {
             linearLayout.setVisibility(View.INVISIBLE);
             styledPlayerView.setUseController(false);
-            if (sturi != null) {
+            if (!subtitleUris.isEmpty()) {
                 setSubtitle(true);
             }
             return;
@@ -698,7 +716,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (showControls) {
             styledPlayerView.setUseController(true);
         }
-        if (sturi != null) {
+        if (!subtitleUris.isEmpty()) {
             setSubtitle(false);
         }
     }
@@ -979,8 +997,8 @@ public class FullscreenExoPlayerFragment extends Fragment {
         DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(context, "jeep-exoplayer-plugin");
         mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(uri));
         // Get the subtitles if any
-        if (sturi != null) {
-            mediaSource = getSubTitle(mediaSource, sturi, dataSourceFactory);
+        if (!subtitleUris.isEmpty()) {
+            mediaSource = getSubTitles(mediaSource, subtitleUris, dataSourceFactory);
         }
         return mediaSource;
     }
@@ -1045,8 +1063,8 @@ public class FullscreenExoPlayerFragment extends Fragment {
             mediaSource = new SsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem);
         }
         // Get the subtitles if any
-        if (sturi != null) {
-            mediaSource = getSubTitle(mediaSource, sturi, dataSourceFactory);
+        if (!subtitleUris.isEmpty()) {
+            mediaSource = getSubTitles(mediaSource, subtitleUris, dataSourceFactory);
         }
         return mediaSource;
     }
@@ -1101,22 +1119,22 @@ public class FullscreenExoPlayerFragment extends Fragment {
         return ret;
     }
 
-    private MediaSource getSubTitle(MediaSource mediaSource, Uri sturi, DataSource.Factory dataSourceFactory) {
-        // Create mediaSource with subtitle
-        MediaSource[] mediaSources = new MediaSource[2];
+    private MediaSource getSubTitles(MediaSource mediaSource, List<Uri> subtitleUris, DataSource.Factory dataSourceFactory) {
+        if (subtitleUris == null || subtitleUris.isEmpty()) {
+            return mediaSource;
+        }
+
+        MediaSource[] mediaSources = new MediaSource[subtitleUris.size() + 1];
         mediaSources[0] = mediaSource;
-        String mimeType = getMimeType(sturi);
 
-        MediaItem.SubtitleConfiguration subConfig = buildSubtitleConfiguration(sturi, mimeType);
-        SingleSampleMediaSource subtitleSource = new SingleSampleMediaSource.Factory(dataSourceFactory).createMediaSource(
-            subConfig,
-            C.TIME_UNSET
-        );
+        for (int i = 0; i < subtitleUris.size(); i++) {
+            Uri trackUri = subtitleUris.get(i);
+            String mimeType = getMimeType(trackUri);
+            MediaItem.SubtitleConfiguration subConfig = buildSubtitleConfiguration(trackUri, mimeType, i);
+            mediaSources[i + 1] = new SingleSampleMediaSource.Factory(dataSourceFactory).createMediaSource(subConfig, C.TIME_UNSET);
+        }
 
-        mediaSources[1] = subtitleSource;
-
-        mediaSource = new MergingMediaSource(mediaSources);
-        return mediaSource;
+        return new MergingMediaSource(mediaSources);
     }
 
     private String getMimeType(Uri sturi) {
@@ -1573,8 +1591,9 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (mimeType != null) {
             builder.setMimeType(mimeType);
         }
-        if (sturi != null && isNetworkUri(sturi)) {
-            builder.setSubtitleConfigurations(Arrays.asList(buildSubtitleConfiguration(sturi, getMimeType(sturi))));
+        List<MediaItem.SubtitleConfiguration> castSubtitles = buildSubtitleConfigurationsForCast();
+        if (!castSubtitles.isEmpty()) {
+            builder.setSubtitleConfigurations(castSubtitles);
         }
         return builder.build();
     }
@@ -1591,16 +1610,45 @@ public class FullscreenExoPlayerFragment extends Fragment {
         return artwork != null && !artwork.isEmpty();
     }
 
-    private MediaItem.SubtitleConfiguration buildSubtitleConfiguration(Uri subtitleUri, String mimeType) {
-        String languageLabel = Locale.forLanguageTag(language).getDisplayLanguage();
+    private List<MediaItem.SubtitleConfiguration> buildSubtitleConfigurationsForCast() {
+        List<MediaItem.SubtitleConfiguration> configurations = new ArrayList<>();
+        for (int i = 0; i < subtitleUris.size(); i++) {
+            Uri trackUri = subtitleUris.get(i);
+            if (trackUri != null && isNetworkUri(trackUri)) {
+                configurations.add(buildSubtitleConfiguration(trackUri, getMimeType(trackUri), i));
+            }
+        }
+        return configurations;
+    }
+
+    private String languageForTrack(int index) {
+        if (subtitleTracks != null && index >= 0 && index < subtitleTracks.size()) {
+            String trackLanguage = subtitleTracks.get(index).language;
+            if (trackLanguage != null && !trackLanguage.isEmpty()) {
+                return trackLanguage;
+            }
+        }
+        if (language != null && !language.isEmpty()) {
+            return language;
+        }
+        return "en";
+    }
+
+    private MediaItem.SubtitleConfiguration buildSubtitleConfiguration(Uri subtitleUri, String mimeType, int index) {
+        String trackLanguage = languageForTrack(index);
+        String languageLabel = Locale.forLanguageTag(trackLanguage).getDisplayLanguage();
+        if (languageLabel == null || languageLabel.isEmpty()) {
+            languageLabel = trackLanguage;
+        }
+        int selectionFlags = index == 0 ? C.SELECTION_FLAG_DEFAULT : 0;
         return new MediaItem.SubtitleConfiguration.Builder(subtitleUri)
             .setMimeType(mimeType)
             .setUri(subtitleUri)
-            .setId(subTitle)
+            .setId(subtitleUri.toString())
             .setLabel(languageLabel)
             .setRoleFlags(C.ROLE_FLAG_CAPTION)
-            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
-            .setLanguage(language)
+            .setSelectionFlags(selectionFlags)
+            .setLanguage(trackLanguage)
             .build();
     }
 
