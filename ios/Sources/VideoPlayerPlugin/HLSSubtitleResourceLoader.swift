@@ -18,9 +18,10 @@ enum HLSVideoAssetFactory {
         videoURL: URL,
         subtitleTracks: [VideoSubtitleTrack]
     ) -> (asset: AVURLAsset, resourceLoader: HLSSubtitleResourceLoader?) {
-        let resolvedTracks = subtitleTracks.compactMap { track -> (url: URL, language: String) in
-            guard let subtitleURL = track.resolvedURL else { return nil }
-            return (subtitleURL, track.language ?? "en")
+        var resolvedTracks: [(url: URL, language: String)] = []
+        for track in subtitleTracks {
+            guard let subtitleURL = track.resolvedURL else { continue }
+            resolvedTracks.append((url: subtitleURL, language: track.language ?? "en"))
         }
 
         guard !resolvedTracks.isEmpty, isHLSStream(videoURL) else {
