@@ -21,6 +21,7 @@ import com.capgo.videoplayer.PickerVideo.PickerVideoFragment;
 import com.capgo.videoplayer.Utilities.FilesUtils;
 import com.capgo.videoplayer.Utilities.FragmentUtils;
 import com.getcapacitor.Bridge;
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
@@ -29,8 +30,12 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 @CapacitorPlugin(
     name = "VideoPlayer",
@@ -84,6 +89,7 @@ public class VideoPlayerPlugin extends Plugin {
     private String playerId;
     private String subtitle = "";
     private String language = "";
+    private List<VideoSubtitleTrack> subtitleTracks = new ArrayList<>();
     private JSObject subTitleOptions;
     private JSObject drmOptions;
     private final JSObject ret = new JSObject();
@@ -201,6 +207,7 @@ public class VideoPlayerPlugin extends Plugin {
             if (call.getData().has("language")) {
                 language = call.getString("language");
             }
+            subtitleTracks = parseSubtitleTracks(call);
             subTitleOptions = new JSObject();
             if (call.getData().has("subtitleOptions")) {
                 subTitleOptions = call.getObject("subtitleOptions");
@@ -988,14 +995,16 @@ public class VideoPlayerPlugin extends Plugin {
         } else {
             // get the videoPath
             videoPath = filesUtils.getFilePath(url);
-            // get the subTitlePath if any
-            if (subtitle != null && subtitle.length() > 0) {
-                subTitlePath = filesUtils.getFilePath(subtitle);
-            } else {
-                subTitlePath = null;
+            List<VideoSubtitleTrack> resolvedSubtitleTracks = resolveSubtitleTracks(subtitleTracks);
+            if (resolvedSubtitleTracks.isEmpty() && subtitle != null && subtitle.length() > 0) {
+                String path = filesUtils.getFilePath(subtitle);
+                if (path != null) {
+                    resolvedSubtitleTracks.add(new VideoSubtitleTrack(path, language));
+                }
             }
+            subTitlePath = resolvedSubtitleTracks.isEmpty() ? null : resolvedSubtitleTracks.get(0).url;
             Log.v(TAG, "*** calculated videoPath: " + videoPath);
-            Log.v(TAG, "*** calculated subTitlePath: " + subTitlePath);
+            Log.v(TAG, "*** calculated subtitleTracks: " + resolvedSubtitleTracks.size());
             if (videoPath != null) {
                 createFullScreenFragment(
                     call,
@@ -1008,8 +1017,7 @@ public class VideoPlayerPlugin extends Plugin {
                     bkModeEnabled,
                     showControls,
                     displayMode,
-                    subTitlePath,
-                    language,
+                    resolvedSubtitleTracks,
                     subTitleOptions,
                     headers,
                     title,
@@ -1175,8 +1183,7 @@ public class VideoPlayerPlugin extends Plugin {
                             bkModeEnabled,
                             showControls,
                             displayMode,
-                            null,
-                            null,
+                            new ArrayList<>(),
                             null,
                             headers,
                             title,
@@ -1205,6 +1212,49 @@ public class VideoPlayerPlugin extends Plugin {
         );
     }
 
+    private List<VideoSubtitleTrack> parseSubtitleTracks(PluginCall call) {
+        List<VideoSubtitleTrack> tracks = new ArrayList<>();
+        if (call.getData().has("subtitles")) {
+            try {
+                JSArray subtitles = call.getArray("subtitles");
+                if (subtitles != null) {
+                    for (int i = 0; i < subtitles.length(); i++) {
+                        JSONObject entry = subtitles.getJSONObject(i);
+                        String trackUrl = entry.optString("subtitle", "");
+                        if (trackUrl == null || trackUrl.isEmpty()) {
+                            continue;
+                        }
+                        String trackLanguage = entry.optString("language", "");
+                        tracks.add(new VideoSubtitleTrack(trackUrl, trackLanguage));
+                    }
+                }
+            } catch (JSONException e) {
+                Log.w(TAG, "Failed to parse subtitles array", e);
+            }
+        }
+        if (tracks.isEmpty() && subtitle != null && subtitle.length() > 0) {
+            tracks.add(new VideoSubtitleTrack(subtitle, language));
+        }
+        return tracks;
+    }
+
+    private List<VideoSubtitleTrack> resolveSubtitleTracks(List<VideoSubtitleTrack> tracks) {
+        List<VideoSubtitleTrack> resolved = new ArrayList<>();
+        if (tracks == null) {
+            return resolved;
+        }
+        for (VideoSubtitleTrack track : tracks) {
+            if (track == null || track.url == null || track.url.isEmpty()) {
+                continue;
+            }
+            String resolvedPath = filesUtils.getFilePath(track.url);
+            if (resolvedPath != null) {
+                resolved.add(new VideoSubtitleTrack(resolvedPath, track.language));
+            }
+        }
+        return resolved;
+    }
+
     private void createFullScreenFragment(
         final PluginCall call,
         String videoPath,
@@ -1216,8 +1266,7 @@ public class VideoPlayerPlugin extends Plugin {
         Boolean bkModeEnabled,
         Boolean showControls,
         String displayMode,
-        String subTitle,
-        String language,
+        List<VideoSubtitleTrack> subtitleTracks,
         JSObject subTitleOptions,
         JSObject headers,
         String title,
@@ -1243,8 +1292,7 @@ public class VideoPlayerPlugin extends Plugin {
             bkModeEnabled,
             showControls,
             displayMode,
-            subTitle,
-            language,
+            subtitleTracks,
             subTitleOptions,
             headers,
             title,

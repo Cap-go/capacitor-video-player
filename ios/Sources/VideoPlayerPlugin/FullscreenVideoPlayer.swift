@@ -3,6 +3,7 @@ import AVKit
 import AVFoundation
 import UIKit
 
+// swiftlint:disable:next type_body_length
 class FullscreenVideoPlayer: NSObject {
     private var player: AVPlayer?
     private var playerViewController: AVPlayerViewController?
@@ -35,8 +36,7 @@ class FullscreenVideoPlayer: NSObject {
     private var contentKeySession: AVContentKeySession?
     private var castController: VideoPlayerCastController?
     private weak var presentingViewController: UIViewController?
-    private var subtitleUrl: String?
-    private var subtitleLanguage: String?
+    private var subtitleTracks: [VideoSubtitleTrack] = []
     private var hlsResourceLoader: HLSSubtitleResourceLoader?
 
     init(
@@ -52,8 +52,7 @@ class FullscreenVideoPlayer: NSObject {
         title: String? = nil,
         smallTitle: String? = nil,
         artwork: String? = nil,
-        subtitleUrl: String? = nil,
-        subtitleLanguage: String? = nil,
+        subtitleTracks: [VideoSubtitleTrack] = [],
         fairplayCertificateUrl: String? = nil,
         fairplayContentKeySpcUrl: String? = nil,
         fairplayAssetId: String? = nil,
@@ -72,8 +71,7 @@ class FullscreenVideoPlayer: NSObject {
         self.title = title
         self.smallTitle = smallTitle
         self.artwork = artwork
-        self.subtitleUrl = subtitleUrl
-        self.subtitleLanguage = subtitleLanguage
+        self.subtitleTracks = subtitleTracks
         self.fairplayCertificateUrl = fairplayCertificateUrl
         self.fairplayContentKeySpcUrl = fairplayContentKeySpcUrl
         self.fairplayAssetId = fairplayAssetId
@@ -90,28 +88,30 @@ class FullscreenVideoPlayer: NSObject {
 
         configureAudioSession()
 
-        guard let subtitleUrlString = subtitleUrl,
-              !subtitleUrlString.isEmpty,
-              let subtitleURL = URL(string: subtitleUrlString) else {
-            let asset = makeVideoAsset(url: url, subtitleURL: nil)
+        let resolvedTracks = subtitleTracks.compactMap { track -> (URL, String?)? in
+            guard let subtitleURL = track.resolvedURL else { return nil }
+            return (subtitleURL, track.language)
+        }
+
+        guard !resolvedTracks.isEmpty else {
+            let asset = makeVideoAsset(url: url, subtitleTracks: [])
             configurePlayer(with: AVPlayerItem(asset: asset))
             completion()
             return
         }
 
         if HLSVideoAssetFactory.isHLSStream(url) {
-            let asset = makeVideoAsset(url: url, subtitleURL: subtitleURL)
+            let asset = makeVideoAsset(url: url, subtitleTracks: subtitleTracks)
             configurePlayer(with: AVPlayerItem(asset: asset))
             completion()
             return
         }
 
         Task {
-            let asset = makeVideoAsset(url: url, subtitleURL: nil)
+            let asset = makeVideoAsset(url: url, subtitleTracks: [])
             let item = await ProgressiveVideoPlayerItemFactory.createPlayerItem(
                 videoAsset: asset,
-                subtitleURL: subtitleURL,
-                subtitleLanguage: subtitleLanguage
+                subtitleTracks: subtitleTracks
             )
             await MainActor.run {
                 self.configurePlayer(with: item)
@@ -120,11 +120,10 @@ class FullscreenVideoPlayer: NSObject {
         }
     }
 
-    private func makeVideoAsset(url: URL, subtitleURL: URL?) -> AVURLAsset {
+    private func makeVideoAsset(url: URL, subtitleTracks: [VideoSubtitleTrack]) -> AVURLAsset {
         let result = HLSVideoAssetFactory.makeAsset(
             videoURL: url,
-            subtitleURL: subtitleURL,
-            language: subtitleLanguage ?? "en"
+            subtitleTracks: subtitleTracks
         )
         hlsResourceLoader = result.resourceLoader
         let asset = result.asset

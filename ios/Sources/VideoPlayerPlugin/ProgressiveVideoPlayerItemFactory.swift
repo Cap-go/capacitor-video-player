@@ -4,10 +4,16 @@ import Foundation
 enum ProgressiveVideoPlayerItemFactory {
     static func createPlayerItem(
         videoAsset: AVURLAsset,
-        subtitleURL: URL,
-        subtitleLanguage: String?
+        subtitleTracks: [VideoSubtitleTrack]
     ) async -> AVPlayerItem {
-        let subtitleAsset = AVURLAsset(url: subtitleURL)
+        let resolvedTracks = subtitleTracks.compactMap { track -> (URL, String?)? in
+            guard let url = track.resolvedURL else { return nil }
+            return (url, track.language)
+        }
+
+        guard !resolvedTracks.isEmpty else {
+            return AVPlayerItem(asset: videoAsset)
+        }
 
         do {
             let videoDuration = try await videoAsset.load(.duration)
@@ -27,9 +33,14 @@ enum ProgressiveVideoPlayerItemFactory {
                 return AVPlayerItem(asset: videoAsset)
             }
 
+            var preferredLanguage: String?
             var subtitleAdded = false
-            let subtitleTracks = try await subtitleAsset.loadTracks(withMediaType: .text)
-            if let subtitleTrack = subtitleTracks.first {
+
+            for (index, track) in resolvedTracks.enumerated() {
+                let subtitleAsset = AVURLAsset(url: track.0)
+                let subtitleMediaTracks = try await subtitleAsset.loadTracks(withMediaType: .text)
+                guard let subtitleTrack = subtitleMediaTracks.first else { continue }
+
                 let compositionTrack = composition.addMutableTrack(
                     withMediaType: .text,
                     preferredTrackID: kCMPersistentTrackID_Invalid
@@ -41,13 +52,25 @@ enum ProgressiveVideoPlayerItemFactory {
                     of: subtitleTrack,
                     at: CMTime.zero
                 )
+
+                if let language = track.1, !language.isEmpty {
+                    compositionTrack?.extendedLanguageTag = language
+                    if preferredLanguage == nil {
+                        preferredLanguage = language
+                    }
+                }
+
+                // Keep first track as default selection preference
+                if index == 0, preferredLanguage == nil {
+                    preferredLanguage = track.1
+                }
                 subtitleAdded = true
             }
 
             let playerItem = AVPlayerItem(asset: composition)
 
             if subtitleAdded {
-                selectSubtitle(in: playerItem, language: subtitleLanguage)
+                selectSubtitle(in: playerItem, language: preferredLanguage)
             }
 
             return playerItem
@@ -101,5 +124,4 @@ enum ProgressiveVideoPlayerItemFactory {
                 || option.locale?.languageCode == language
         }
     }
-
 }

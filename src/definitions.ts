@@ -122,13 +122,24 @@ export interface capVideoPlayerOptions {
   chromecastUrl?: string;
   /**
    * The url of subtitle associated with the video
+   *
+   * Prefer `subtitles` when providing more than one track.
+   * Kept for backward compatibility.
    */
   subtitle?: string;
   /**
    * The language of subtitle
    * see https://github.com/libyal/libfwnt/wiki/Language-Code-identifiers
+   *
+   * Prefer `subtitles` when providing more than one track.
+   * Kept for backward compatibility.
    */
   language?: string;
+  /**
+   * Multiple subtitle tracks (iOS, Android).
+   * When provided, takes precedence over `subtitle` / `language`.
+   */
+  subtitles?: VideoSubtitle[];
   /**
    * SubTitle Options
    */
@@ -319,6 +330,17 @@ export interface capVideoPlayerResult {
    * message string
    */
   message?: string;
+}
+export interface VideoSubtitle {
+  /**
+   * The url of the subtitle file (vtt, srt, ...)
+   */
+  subtitle: string;
+  /**
+   * The language of the subtitle
+   * see https://github.com/libyal/libfwnt/wiki/Language-Code-identifiers
+   */
+  language?: string;
 }
 export interface SubTitleOptions {
   /**

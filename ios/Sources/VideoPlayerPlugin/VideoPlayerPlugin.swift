@@ -83,17 +83,8 @@ extension VideoPlayerPlugin {
         let artwork = call.getString("artwork")
         let chromecastUrl = call.getString("chromecastUrl")
         let audioCategory = call.getString("audioCategory")
-        let subtitle = call.getString("subtitle")
-        let language = call.getString("language")
-
-        // Extract FairPlay DRM options if provided
-        let drm = call.getObject("drm")
-        let fairplay = drm?["fairplay"] as? [String: Any]
-        let fairplayCertificateUrl = fairplay?["certificateUrl"] as? String
-        let fairplayContentKeySpcUrl = fairplay?["contentKeySpcUrl"] as? String
-        let fairplayAssetId = fairplay?["assetId"] as? String
-        let widevine = drm?["widevine"] as? [String: Any]
-        let widevineLicenseUrl = widevine?["certificateUrl"] as? String
+        let subtitleTracks = Self.parseSubtitleTracks(from: call)
+        let drmOptions = Self.parseDrmOptions(from: call)
 
         // Create video player
         let player = FullscreenVideoPlayer(
@@ -109,12 +100,11 @@ extension VideoPlayerPlugin {
             title: title,
             smallTitle: smallTitle,
             artwork: artwork,
-            subtitleUrl: subtitle,
-            subtitleLanguage: language,
-            fairplayCertificateUrl: fairplayCertificateUrl,
-            fairplayContentKeySpcUrl: fairplayContentKeySpcUrl,
-            fairplayAssetId: fairplayAssetId,
-            widevineLicenseUrl: widevineLicenseUrl,
+            subtitleTracks: subtitleTracks,
+            fairplayCertificateUrl: drmOptions.fairplayCertificateUrl,
+            fairplayContentKeySpcUrl: drmOptions.fairplayContentKeySpcUrl,
+            fairplayAssetId: drmOptions.fairplayAssetId,
+            widevineLicenseUrl: drmOptions.widevineLicenseUrl,
             audioCategory: audioCategory
         )
 
@@ -145,6 +135,43 @@ extension VideoPlayerPlugin {
                 }
             }
         }
+    }
+
+    private static func parseSubtitleTracks(from call: CAPPluginCall) -> [VideoSubtitleTrack] {
+        let subtitlesArray = call.getArray("subtitles", JSObject.self)?.map { entry -> [String: Any] in
+            var dict: [String: Any] = [:]
+            if let subtitleUrl = entry["subtitle"] as? String {
+                dict["subtitle"] = subtitleUrl
+            }
+            if let lang = entry["language"] as? String {
+                dict["language"] = lang
+            }
+            return dict
+        }
+        return VideoSubtitleTrackParser.parse(
+            from: subtitlesArray,
+            legacySubtitle: call.getString("subtitle"),
+            legacyLanguage: call.getString("language")
+        )
+    }
+
+    private struct ParsedDrmOptions {
+        let fairplayCertificateUrl: String?
+        let fairplayContentKeySpcUrl: String?
+        let fairplayAssetId: String?
+        let widevineLicenseUrl: String?
+    }
+
+    private static func parseDrmOptions(from call: CAPPluginCall) -> ParsedDrmOptions {
+        let drm = call.getObject("drm")
+        let fairplay = drm?["fairplay"] as? [String: Any]
+        let widevine = drm?["widevine"] as? [String: Any]
+        return ParsedDrmOptions(
+            fairplayCertificateUrl: fairplay?["certificateUrl"] as? String,
+            fairplayContentKeySpcUrl: fairplay?["contentKeySpcUrl"] as? String,
+            fairplayAssetId: fairplay?["assetId"] as? String,
+            widevineLicenseUrl: widevine?["certificateUrl"] as? String
+        )
     }
 
     private func configureCallbacks(for player: FullscreenVideoPlayer, playerId: String) {

@@ -3,6 +3,7 @@ package com.capgo.videoplayer;
 import android.content.Context;
 import com.capgo.videoplayer.PickerVideo.PickerVideoFragment;
 import com.getcapacitor.JSObject;
+import java.util.List;
 
 public class VideoPlayer {
 
@@ -22,8 +23,7 @@ public class VideoPlayer {
         Boolean bkModeEnabled,
         Boolean showControls,
         String displayMode,
-        String subTitle,
-        String language,
+        List<VideoSubtitleTrack> subtitleTracks,
         JSObject subTitleOptions,
         JSObject headers,
         String title,
@@ -48,8 +48,7 @@ public class VideoPlayer {
         fsFragment.bkModeEnabled = bkModeEnabled;
         fsFragment.showControls = showControls;
         fsFragment.displayMode = displayMode;
-        fsFragment.subTitle = subTitle;
-        fsFragment.language = language;
+        fsFragment.subtitleTracks = subtitleTracks;
         fsFragment.subTitleOptions = subTitleOptions;
         fsFragment.headers = headers;
         fsFragment.title = title;
