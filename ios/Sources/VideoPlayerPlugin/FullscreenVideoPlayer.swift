@@ -100,8 +100,15 @@ class FullscreenVideoPlayer: NSObject {
             return
         }
 
-        if HLSVideoAssetFactory.isHLSStream(url) {
-            let asset = makeVideoAsset(url: url, subtitleTracks: subtitleTracks)
+        // Prefer the resource-loader path for any video with sidecar subtitles.
+        // That exposes selectable tracks in AVPlayerViewController (composition does not).
+        let assetResult = HLSVideoAssetFactory.makeAsset(
+            videoURL: url,
+            subtitleTracks: subtitleTracks
+        )
+        hlsResourceLoader = assetResult.resourceLoader
+        if assetResult.resourceLoader != nil {
+            let asset = applyFairPlayIfNeeded(to: assetResult.asset)
             configurePlayer(with: AVPlayerItem(asset: asset))
             completion()
             return
@@ -126,8 +133,10 @@ class FullscreenVideoPlayer: NSObject {
             subtitleTracks: subtitleTracks
         )
         hlsResourceLoader = result.resourceLoader
-        let asset = result.asset
+        return applyFairPlayIfNeeded(to: result.asset)
+    }
 
+    private func applyFairPlayIfNeeded(to asset: AVURLAsset) -> AVURLAsset {
         if let certUrl = fairplayCertificateUrl, !certUrl.isEmpty,
            let spcUrl = fairplayContentKeySpcUrl, !spcUrl.isEmpty {
             let session = AVContentKeySession(keySystem: .fairPlayStreaming)
@@ -135,7 +144,6 @@ class FullscreenVideoPlayer: NSObject {
             session.addContentKeyRecipient(asset)
             self.contentKeySession = session
         }
-
         return asset
     }
 

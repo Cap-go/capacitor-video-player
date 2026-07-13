@@ -24,13 +24,18 @@ enum HLSVideoAssetFactory {
             resolvedTracks.append((url: subtitleURL, language: track.language ?? "en"))
         }
 
-        guard !resolvedTracks.isEmpty, isHLSStream(videoURL) else {
+        // Use the resource loader whenever sidecar subtitles are present so
+        // AVPlayerViewController can expose a native multi-language picker.
+        // AVMutableComposition can play one track but does not reliably expose
+        // selectable legible media-selection options.
+        guard !resolvedTracks.isEmpty else {
             return (AVURLAsset(url: videoURL), nil)
         }
 
         let resourceLoader = HLSSubtitleResourceLoader(
             videoURL: videoURL,
-            subtitleTracks: resolvedTracks.map { HLSSubtitleTrack(url: $0.url, language: $0.language) }
+            subtitleTracks: resolvedTracks.map { HLSSubtitleTrack(url: $0.url, language: $0.language) },
+            isProgressive: !isHLSStream(videoURL)
         )
         guard let assetURL = HLSSubtitleResourceLoader.assetURL(for: videoURL) else {
             return (AVURLAsset(url: videoURL), nil)
@@ -47,32 +52,50 @@ struct HLSSubtitleTrack {
     let language: String
 }
 
-/// Injects external WebVTT subtitles into HLS master playlists via AVAssetResourceLoaderDelegate.
-/// AVMutableComposition cannot demux HLS tracks, so sidecar subtitles must be wired through the manifest.
+/// Injects external WebVTT subtitles into playlists via AVAssetResourceLoaderDelegate.
+///
+/// - HLS multivariant playlists: inject `#EXT-X-MEDIA` subtitle tags.
+/// - HLS media playlists: wrap in a synthetic multivariant playlist that references the media playlist.
+/// - Progressive MP4/WebM: synthesize a multivariant + media playlist so multiple sidecar
+///   tracks appear in AVPlayerViewController's subtitle options.
 final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
     static let videoScheme = "capgohls"
+    static let mediaPlaylistScheme = "capgohls-media"
     static let subtitlePlaylistScheme = "capgohls-sub"
     private static let subtitleGroupID = "capgosubs"
     private static let mpegURLContentType = UTType.m3uPlaylist.identifier
+    private static let progressiveSegmentDuration = 86400.0
 
     private let originalVideoURL: URL
     private let subtitleTracks: [HLSSubtitleTrack]
+    private let isProgressive: Bool
 
     private struct LoadedResource {
         let data: Data
         let contentType: String?
     }
 
-    init(videoURL: URL, subtitleTracks: [HLSSubtitleTrack]) {
+    init(videoURL: URL, subtitleTracks: [HLSSubtitleTrack], isProgressive: Bool = false) {
         self.originalVideoURL = videoURL
         self.subtitleTracks = subtitleTracks
+        self.isProgressive = isProgressive
     }
+
+    deinit {}
 
     static func assetURL(for videoURL: URL) -> URL? {
         guard var components = URLComponents(url: videoURL, resolvingAgainstBaseURL: false) else {
             return nil
         }
         components.scheme = videoScheme
+        return components.url
+    }
+
+    static func mediaPlaylistURL(for videoURL: URL) -> URL? {
+        guard var components = URLComponents(url: videoURL, resolvingAgainstBaseURL: false) else {
+            return nil
+        }
+        components.scheme = mediaPlaylistScheme
         return components.url
     }
 
@@ -111,8 +134,23 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         if requestURL.scheme == Self.subtitlePlaylistScheme {
             let index = subtitleIndex(from: requestURL) ?? 0
             let track = subtitleTracks[min(max(index, 0), subtitleTracks.count - 1)]
-            let data = Data(subtitleMediaPlaylist(for: track.url).utf8)
+            let data = Data(Self.subtitleMediaPlaylist(for: track.url).utf8)
             return LoadedResource(data: data, contentType: Self.mpegURLContentType)
+        }
+
+        if requestURL.scheme == Self.mediaPlaylistScheme {
+            let data = Data(Self.progressiveMediaPlaylist(for: originalVideoURL).utf8)
+            return LoadedResource(data: data, contentType: Self.mpegURLContentType)
+        }
+
+        if isProgressive {
+            let playlist = Self.multivariantPlaylist(
+                mediaURI: Self.mediaPlaylistURL(for: originalVideoURL)?.absoluteString
+                    ?? originalVideoURL.absoluteString,
+                subtitleTracks: subtitleTracks,
+                videoURL: originalVideoURL
+            )
+            return LoadedResource(data: Data(playlist.utf8), contentType: Self.mpegURLContentType)
         }
 
         let fetchURL = originalURL(for: requestURL)
@@ -123,16 +161,22 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
 
         let manifest = String(data: data, encoding: .utf8) ?? ""
 
-        guard hasStreamInfTags(manifest) else {
-            let contentType = Self.contentTypeIdentifier(from: response)
-            return LoadedResource(data: data, contentType: contentType)
+        if hasStreamInfTags(manifest) {
+            let modified = injectSubtitles(
+                into: manifest,
+                baseURL: response.url ?? fetchURL
+            )
+            return LoadedResource(data: Data(modified.utf8), contentType: Self.mpegURLContentType)
         }
 
-        let modified = injectSubtitles(
-            into: manifest,
-            baseURL: response.url ?? fetchURL
+        // Media playlist (no variants): wrap in a multivariant playlist so subtitle tags are selectable.
+        let mediaURI = (response.url ?? fetchURL).absoluteString
+        let playlist = Self.multivariantPlaylist(
+            mediaURI: mediaURI,
+            subtitleTracks: subtitleTracks,
+            videoURL: originalVideoURL
         )
-        return LoadedResource(data: Data(modified.utf8), contentType: Self.mpegURLContentType)
+        return LoadedResource(data: Data(playlist.utf8), contentType: Self.mpegURLContentType)
     }
 
     private func subtitleIndex(from requestURL: URL) -> Int? {
@@ -157,13 +201,6 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         manifest.contains("#EXT-X-STREAM-INF")
     }
 
-    private static func contentTypeIdentifier(from response: URLResponse) -> String? {
-        guard let mimeType = (response as? HTTPURLResponse)?.mimeType else {
-            return nil
-        }
-        return UTType(mimeType: mimeType)?.identifier
-    }
-
     private func absoluteURI(for uri: String, relativeTo baseURL: URL) -> String {
         let trimmed = uri.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: trimmed, relativeTo: baseURL)?.absoluteURL else {
@@ -172,18 +209,60 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         return url.absoluteString
     }
 
-    private func injectSubtitles(into manifest: String, baseURL: URL) -> String {
-        let mediaTags = subtitleTracks.enumerated().compactMap { index, track -> String? in
-            guard let subtitlePlaylistURI = Self.subtitlePlaylistURL(for: originalVideoURL, index: index)?.absoluteString else {
+    static func multivariantPlaylist(
+        mediaURI: String,
+        subtitleTracks: [HLSSubtitleTrack],
+        videoURL: URL
+    ) -> String {
+        var lines: [String] = ["#EXTM3U", "#EXT-X-VERSION:3"]
+        lines.append(contentsOf: subtitleMediaTags(subtitleTracks: subtitleTracks, videoURL: videoURL))
+        lines.append("#EXT-X-STREAM-INF:BANDWIDTH=2500000,SUBTITLES=\"\(subtitleGroupID)\"")
+        lines.append(mediaURI)
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    static func progressiveMediaPlaylist(for videoURL: URL) -> String {
+        """
+        #EXTM3U
+        #EXT-X-VERSION:3
+        #EXT-X-TARGETDURATION:\(Int(progressiveSegmentDuration))
+        #EXT-X-MEDIA-SEQUENCE:0
+        #EXT-X-PLAYLIST-TYPE:VOD
+        #EXTINF:\(progressiveSegmentDuration),
+        \(videoURL.absoluteString)
+        #EXT-X-ENDLIST
+        """
+    }
+
+    static func subtitleMediaPlaylist(for subtitleURL: URL) -> String {
+        """
+        #EXTM3U
+        #EXT-X-VERSION:3
+        #EXT-X-TARGETDURATION:\(Int(progressiveSegmentDuration))
+        #EXT-X-MEDIA-SEQUENCE:0
+        #EXT-X-PLAYLIST-TYPE:VOD
+        #EXTINF:\(progressiveSegmentDuration),
+        \(subtitleURL.absoluteString)
+        #EXT-X-ENDLIST
+        """
+    }
+
+    static func subtitleMediaTags(subtitleTracks: [HLSSubtitleTrack], videoURL: URL) -> [String] {
+        subtitleTracks.enumerated().compactMap { index, track -> String? in
+            guard let subtitlePlaylistURI = subtitlePlaylistURL(for: videoURL, index: index)?.absoluteString else {
                 return nil
             }
             let isDefault = index == 0 ? "YES" : "NO"
             let displayName = Locale(identifier: track.language).localizedString(forLanguageCode: track.language)
                 ?? track.language
             return """
-            #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="\(Self.subtitleGroupID)",NAME="\(displayName)",DEFAULT=\(isDefault),AUTOSELECT=YES,FORCED=NO,LANGUAGE="\(track.language)",URI="\(subtitlePlaylistURI)"
+            #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="\(subtitleGroupID)",NAME="\(displayName)",DEFAULT=\(isDefault),AUTOSELECT=YES,FORCED=NO,LANGUAGE="\(track.language)",URI="\(subtitlePlaylistURI)"
             """
         }
+    }
+
+    private func injectSubtitles(into manifest: String, baseURL: URL) -> String {
+        let mediaTags = Self.subtitleMediaTags(subtitleTracks: subtitleTracks, videoURL: originalVideoURL)
 
         guard !mediaTags.isEmpty else {
             return manifest
@@ -224,19 +303,6 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         }
 
         return result.joined(separator: "\n")
-    }
-
-    private func subtitleMediaPlaylist(for subtitleURL: URL) -> String {
-        """
-        #EXTM3U
-        #EXT-X-VERSION:3
-        #EXT-X-TARGETDURATION:600
-        #EXT-X-MEDIA-SEQUENCE:0
-        #EXT-X-PLAYLIST-TYPE:VOD
-        #EXTINF:600.0,
-        \(subtitleURL.absoluteString)
-        #EXT-X-ENDLIST
-        """
     }
 
     private func fulfill(_ loadingRequest: AVAssetResourceLoadingRequest, with resource: LoadedResource) {

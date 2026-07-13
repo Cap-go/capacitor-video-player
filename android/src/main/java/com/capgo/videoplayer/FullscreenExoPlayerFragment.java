@@ -156,6 +156,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private Uri uri = null;
     private Uri sturi = null;
     private List<Uri> subtitleUris = new ArrayList<>();
+    private List<String> subtitleLanguages = new ArrayList<>();
     private ProgressBar Pbar;
     private View view;
     private ImageButton closeBtn;
@@ -178,7 +179,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private String stBackColor = "";
     private Integer stFontSize = 16;
     private boolean isInPictureInPictureMode = false;
-    private TrackSelector trackSelector;
+    private DefaultTrackSelector trackSelector;
     // Current playback position (in milliseconds).
     private int mCurrentPosition;
     private int mDuration;
@@ -400,10 +401,12 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (!isInternal) {
             uri = Uri.parse(videoPath);
             subtitleUris = new ArrayList<>();
+            subtitleLanguages = new ArrayList<>();
             if (subtitleTracks != null) {
                 for (VideoSubtitleTrack track : subtitleTracks) {
                     if (track != null && track.url != null && !track.url.isEmpty()) {
                         subtitleUris.add(Uri.parse(track.url));
+                        subtitleLanguages.add(track.language != null ? track.language : "");
                     }
                 }
             }
@@ -411,6 +414,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
             if (sturi == null && subTitle != null && !subTitle.isEmpty()) {
                 sturi = Uri.parse(subTitle);
                 subtitleUris.add(sturi);
+                subtitleLanguages.add(language != null ? language : "en");
             }
 
             stForeColor = subTitleOptions != null && subTitleOptions.has("foregroundColor")
@@ -892,6 +896,12 @@ public class FullscreenExoPlayerFragment extends Fragment {
             DefaultBandwidthMeter bandwidthMeter = new DefaultBandwidthMeter.Builder(context).build();
             ExoTrackSelection.Factory videoTrackSelectionFactory = new AdaptiveTrackSelection.Factory();
             trackSelector = new DefaultTrackSelector(context, videoTrackSelectionFactory);
+            if (!subtitleUris.isEmpty()) {
+                String preferred = languageForTrack(0);
+                trackSelector.setParameters(
+                    trackSelector.buildUponParameters().setPreferredTextLanguage(preferred).setSelectUndeterminedTextLanguage(true)
+                );
+            }
             LoadControl loadControl = new DefaultLoadControl();
             player = new ExoPlayer.Builder(context)
                 .setSeekBackIncrementMs(10000)
@@ -946,11 +956,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
     private void updateSubtitleButtonVisibility(Tracks tracks) {
         if (styledPlayerView == null) return;
-        if (sturi != null) {
-            styledPlayerView.setShowSubtitleButton(true);
-            return;
-        }
-        styledPlayerView.setShowSubtitleButton(hasSupportedTextTrack(tracks));
+        boolean hasSidecar = !subtitleUris.isEmpty() || sturi != null;
+        boolean hasText = hasSidecar || hasSupportedTextTrack(tracks);
+        // CC button opens ExoPlayer's text-track picker when multiple languages exist.
+        styledPlayerView.setShowSubtitleButton(hasText);
     }
 
     private boolean hasSupportedTextTrack(Tracks tracks) {
@@ -1622,8 +1631,9 @@ public class FullscreenExoPlayerFragment extends Fragment {
     }
 
     private String languageForTrack(int index) {
-        if (subtitleTracks != null && index >= 0 && index < subtitleTracks.size()) {
-            String trackLanguage = subtitleTracks.get(index).language;
+        // subtitleLanguages is built in lockstep with subtitleUris — never re-index raw subtitleTracks.
+        if (index >= 0 && index < subtitleLanguages.size()) {
+            String trackLanguage = subtitleLanguages.get(index);
             if (trackLanguage != null && !trackLanguage.isEmpty()) {
                 return trackLanguage;
             }
