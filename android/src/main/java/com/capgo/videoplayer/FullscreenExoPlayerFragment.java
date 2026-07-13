@@ -1631,14 +1631,9 @@ public class FullscreenExoPlayerFragment extends Fragment {
     }
 
     private String languageForTrack(int index) {
+        // subtitleLanguages is built in lockstep with subtitleUris — never re-index raw subtitleTracks.
         if (index >= 0 && index < subtitleLanguages.size()) {
             String trackLanguage = subtitleLanguages.get(index);
-            if (trackLanguage != null && !trackLanguage.isEmpty()) {
-                return trackLanguage;
-            }
-        }
-        if (subtitleTracks != null && index >= 0 && index < subtitleTracks.size()) {
-            String trackLanguage = subtitleTracks.get(index).language;
             if (trackLanguage != null && !trackLanguage.isEmpty()) {
                 return trackLanguage;
             }

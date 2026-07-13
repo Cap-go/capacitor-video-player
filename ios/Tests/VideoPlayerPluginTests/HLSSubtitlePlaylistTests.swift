@@ -29,10 +29,17 @@ final class HLSSubtitlePlaylistTests: XCTestCase {
     func testProgressiveMediaPlaylistPointsAtSourceVideo() {
         let videoURL = URL(string: "https://example.com/movie.mp4")!
         let playlist = HLSSubtitleResourceLoader.progressiveMediaPlaylist(for: videoURL)
+        let subtitle = HLSSubtitleResourceLoader.subtitleMediaPlaylist(
+            for: URL(string: "https://example.com/en.vtt")!
+        )
 
         XCTAssertTrue(playlist.contains("#EXT-X-PLAYLIST-TYPE:VOD"))
         XCTAssertTrue(playlist.contains(videoURL.absoluteString))
         XCTAssertTrue(playlist.contains("#EXT-X-ENDLIST"))
+        XCTAssertTrue(playlist.contains("#EXT-X-TARGETDURATION:86400"))
+        XCTAssertTrue(playlist.contains("#EXTINF:86400.0,"))
+        XCTAssertTrue(subtitle.contains("#EXT-X-TARGETDURATION:86400"))
+        XCTAssertTrue(subtitle.contains("#EXTINF:86400.0,"))
     }
 
     func testMakeAssetUsesResourceLoaderForProgressiveSubtitles() {

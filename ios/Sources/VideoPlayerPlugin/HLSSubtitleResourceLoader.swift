@@ -81,6 +81,8 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         self.isProgressive = isProgressive
     }
 
+    deinit {}
+
     static func assetURL(for videoURL: URL) -> URL? {
         guard var components = URLComponents(url: videoURL, resolvingAgainstBaseURL: false) else {
             return nil
@@ -236,13 +238,14 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         """
         #EXTM3U
         #EXT-X-VERSION:3
-        #EXT-X-TARGETDURATION:600
+        #EXT-X-TARGETDURATION:\(Int(progressiveSegmentDuration))
         #EXT-X-MEDIA-SEQUENCE:0
         #EXT-X-PLAYLIST-TYPE:VOD
-        #EXTINF:600.0,
+        #EXTINF:\(progressiveSegmentDuration),
         \(subtitleURL.absoluteString)
         #EXT-X-ENDLIST
         """
+    }
     }
 
     static func subtitleMediaTags(subtitleTracks: [HLSSubtitleTrack], videoURL: URL) -> [String] {
