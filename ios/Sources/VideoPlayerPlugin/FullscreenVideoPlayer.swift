@@ -81,7 +81,7 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     func setupPlayer(completion: @escaping () -> Void) {
-        guard let url = URL(string: videoUrl) else {
+        guard let url = Self.resolveMediaURL(videoUrl) else {
             completion()
             return
         }
@@ -100,8 +100,9 @@ class FullscreenVideoPlayer: NSObject {
             return
         }
 
-        // Prefer the resource-loader path for any video with sidecar subtitles.
-        // That exposes selectable tracks in AVPlayerViewController (composition does not).
+        // Prefer the resource-loader path when makeAsset can safely wrap the stream
+        // (HLS / remote progressive). Local progressive file:// sources return a nil
+        // loader and must use composition so playback still starts (#78).
         let assetResult = HLSVideoAssetFactory.makeAsset(
             videoURL: url,
             subtitleTracks: subtitleTracks
@@ -125,6 +126,17 @@ class FullscreenVideoPlayer: NSObject {
                 completion()
             }
         }
+    }
+
+    private static func resolveMediaURL(_ raw: String) -> URL? {
+        guard !raw.isEmpty else { return nil }
+        if let parsed = URL(string: raw), parsed.scheme != nil {
+            return parsed
+        }
+        if raw.hasPrefix("/") {
+            return URL(fileURLWithPath: raw)
+        }
+        return URL(string: raw)
     }
 
     private func makeVideoAsset(url: URL, subtitleTracks: [VideoSubtitleTrack]) -> AVURLAsset {

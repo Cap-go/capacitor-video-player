@@ -32,6 +32,14 @@ enum HLSVideoAssetFactory {
             return (AVURLAsset(url: videoURL), nil)
         }
 
+        // Local progressive files cannot be wrapped in synthetic HLS playlists:
+        // AVPlayer will not fetch file:// media/subtitle segments from a custom-scheme
+        // master playlist, so playback never becomes ready (#78). Fall back to the
+        // composition path in FullscreenVideoPlayer instead.
+        if videoURL.isFileURL && !isHLSStream(videoURL) {
+            return (AVURLAsset(url: videoURL), nil)
+        }
+
         let resourceLoader = HLSSubtitleResourceLoader(
             videoURL: videoURL,
             subtitleTracks: resolvedTracks.map { HLSSubtitleTrack(url: $0.url, language: $0.language) },

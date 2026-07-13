@@ -62,4 +62,30 @@ final class HLSSubtitlePlaylistTests: XCTestCase {
         XCTAssertNil(result.resourceLoader)
         XCTAssertEqual(result.asset.url, videoURL)
     }
+
+    func testMakeAssetSkipsResourceLoaderForLocalProgressiveSubtitles() {
+        let videoURL = URL(fileURLWithPath: "/var/mobile/Containers/Data/Application/video.mp4")
+        let tracks = [
+            VideoSubtitleTrack(url: "file:///var/mobile/Containers/Data/Application/subtitles-en.vtt", language: "en"),
+            VideoSubtitleTrack(url: "file:///var/mobile/Containers/Data/Application/subtitles-fr.vtt", language: "fr")
+        ]
+
+        let result = HLSVideoAssetFactory.makeAsset(videoURL: videoURL, subtitleTracks: tracks)
+
+        XCTAssertNil(result.resourceLoader)
+        XCTAssertEqual(result.asset.url, videoURL)
+        XCTAssertEqual(result.asset.url.scheme, "file")
+    }
+
+    func testMakeAssetUsesResourceLoaderForLocalHLSSubtitles() {
+        let videoURL = URL(fileURLWithPath: "/var/mobile/Containers/Data/Application/stream.m3u8")
+        let tracks = [
+            VideoSubtitleTrack(url: "file:///var/mobile/Containers/Data/Application/subtitles-en.vtt", language: "en")
+        ]
+
+        let result = HLSVideoAssetFactory.makeAsset(videoURL: videoURL, subtitleTracks: tracks)
+
+        XCTAssertNotNil(result.resourceLoader)
+        XCTAssertEqual(result.asset.url.scheme, HLSSubtitleResourceLoader.videoScheme)
+    }
 }

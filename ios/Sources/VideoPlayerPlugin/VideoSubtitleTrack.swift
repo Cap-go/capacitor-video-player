@@ -6,6 +6,13 @@ struct VideoSubtitleTrack {
 
     var resolvedURL: URL? {
         guard !url.isEmpty else { return nil }
+        if let parsed = URL(string: url), parsed.scheme != nil {
+            return parsed
+        }
+        // Capacitor filesystem paths sometimes arrive without a file:// scheme.
+        if url.hasPrefix("/") {
+            return URL(fileURLWithPath: url)
+        }
         return URL(string: url)
     }
 }
