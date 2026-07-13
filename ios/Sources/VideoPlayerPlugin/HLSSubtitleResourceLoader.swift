@@ -246,7 +246,6 @@ final class HLSSubtitleResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         #EXT-X-ENDLIST
         """
     }
-    }
 
     static func subtitleMediaTags(subtitleTracks: [HLSSubtitleTrack], videoURL: URL) -> [String] {
         subtitleTracks.enumerated().compactMap { index, track -> String? in
