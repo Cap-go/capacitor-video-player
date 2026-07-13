@@ -46,7 +46,7 @@ import org.json.JSONObject;
 )
 public class VideoPlayerPlugin extends Plugin {
 
-    private final String pluginVersion = "8.2.2";
+    private final String pluginVersion = "8.2.3";
 
     // Permission alias constants
     private static final String PERMISSION_DENIED_ERROR = "Unable to access media videos, user denied permission request";
