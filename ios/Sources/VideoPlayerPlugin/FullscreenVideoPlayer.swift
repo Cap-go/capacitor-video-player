@@ -22,6 +22,7 @@ class FullscreenVideoPlayer: NSObject {
     private var rate: Float
     private var audioCategory: String?
     private var didActivateAudioSession: Bool = false
+    private var didEmitReady: Bool = false
     private var didEmitExit: Bool = false
     private var timeObserver: Any?
     private var onPlay: (() -> Void)?
@@ -38,6 +39,11 @@ class FullscreenVideoPlayer: NSObject {
     private weak var presentingViewController: UIViewController?
     private var subtitleTracks: [VideoSubtitleTrack] = []
     private var hlsResourceLoader: HLSSubtitleResourceLoader?
+    private var subtitleButton: UIButton?
+    private var subtitleSelectionObserver: NSObjectProtocol?
+    private var nonHlsSubtitleModeEnabled: Bool = false
+    private var selectedNonHlsSubtitleIndex: Int? = nil
+    private var nonHlsBootstrapLoadId: UUID?
 
     init(
         playerId: String,
@@ -92,13 +98,58 @@ class FullscreenVideoPlayer: NSObject {
             guard let subtitleURL = track.resolvedURL else { return nil }
             return (subtitleURL, track.language)
         }
+        let isLikelyHlsSource = Self.isLikelyHLS(videoUrl)
 
         guard !resolvedTracks.isEmpty else {
+            nonHlsSubtitleModeEnabled = false
+            selectedNonHlsSubtitleIndex = nil
+            nonHlsBootstrapLoadId = nil
             let asset = makeVideoAsset(url: url, subtitleTracks: [])
             configurePlayer(with: AVPlayerItem(asset: asset))
             completion()
             return
         }
+
+        // For non-HLS media (e.g. MP4 + sidecar subtitles), initialize with only the
+        // first usable subtitle track and switch tracks later via the custom subtitle button.
+        if !isLikelyHlsSource {
+            nonHlsSubtitleModeEnabled = true
+            let firstValidIndex = validNonHlsSubtitleTracks.first?.index
+            selectedNonHlsSubtitleIndex = firstValidIndex
+            let baseAsset = makeVideoAsset(url: url, subtitleTracks: [])
+            configurePlayer(with: AVPlayerItem(asset: baseAsset))
+            completion()
+
+            guard let firstValidIndex else {
+                return
+            }
+
+            let bootstrapLoadId = UUID()
+            nonHlsBootstrapLoadId = bootstrapLoadId
+
+            Task { [weak self] in
+                guard let self else { return }
+                let initialTrack = [self.subtitleTracks[firstValidIndex]]
+                let item = await ProgressiveVideoPlayerItemFactory.createPlayerItem(
+                    videoAsset: baseAsset,
+                    subtitleTracks: initialTrack
+                )
+                await MainActor.run {
+                    guard self.nonHlsSubtitleModeEnabled,
+                          self.nonHlsBootstrapLoadId == bootstrapLoadId,
+                          self.selectedNonHlsSubtitleIndex == firstValidIndex else {
+                        return
+                    }
+                    self.replaceCurrentItemPreservingPlayback(with: item)
+                    self.refreshSubtitleButton()
+                }
+            }
+            return
+        }
+
+        nonHlsSubtitleModeEnabled = false
+        selectedNonHlsSubtitleIndex = nil
+        nonHlsBootstrapLoadId = nil
 
         // Prefer the resource-loader path when makeAsset can safely wrap the stream
         // (HLS / remote progressive). Local progressive file:// sources return a nil
@@ -172,6 +223,378 @@ class FullscreenVideoPlayer: NSObject {
 
         setupChromecast()
         setupObservers()
+        setupSubtitleSelectionObserver()
+    }
+
+    private func setupSubtitleSelectionObserver() {
+        guard subtitleSelectionObserver == nil, let playerItem else { return }
+        subtitleSelectionObserver = NotificationCenter.default.addObserver(
+            forName: AVPlayerItem.mediaSelectionDidChangeNotification,
+            object: playerItem,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refreshSubtitleButton()
+        }
+    }
+
+    private static func isLikelyHLS(_ value: String) -> Bool {
+        guard let url = resolveMediaURL(value) else { return false }
+        return HLSVideoAssetFactory.isHLSStream(url)
+    }
+
+    private var validNonHlsSubtitleTracks: [(index: Int, track: VideoSubtitleTrack)] {
+        subtitleTracks.enumerated().compactMap { index, track in
+            guard track.resolvedURL != nil else { return nil }
+            return (index, track)
+        }
+    }
+
+    private func shouldShowCustomSubtitleButton() -> Bool {
+        guard showControls else { return false }
+        // HLS usually has native subtitle selection UI; this custom button targets MP4 + sidecar subtitles.
+        return !Self.isLikelyHLS(videoUrl)
+    }
+
+    private func shouldShowNonHlsSubtitleButton() -> Bool {
+        return nonHlsSubtitleModeEnabled && validNonHlsSubtitleTracks.count > 1 && shouldShowCustomSubtitleButton()
+    }
+
+    private func refreshSubtitleButton() {
+        DispatchQueue.main.async { [weak self] in
+            self?.installOrUpdateSubtitleButtonIfNeeded()
+        }
+    }
+
+    private func installOrUpdateSubtitleButtonIfNeeded() {
+        guard shouldShowCustomSubtitleButton(),
+              let playerVC = playerViewController else {
+            subtitleButton?.removeFromSuperview()
+            subtitleButton = nil
+            return
+        }
+
+        if subtitleButton == nil {
+            guard let overlayView = playerVC.contentOverlayView else {
+                return
+            }
+            let button = UIButton(type: .system)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            if #available(iOS 13.0, *) {
+                button.setImage(UIImage(systemName: "captions.bubble"), for: .normal)
+            } else {
+                button.setTitle("Sub", for: .normal)
+            }
+            button.tintColor = .white
+            button.backgroundColor = UIColor.black.withAlphaComponent(0.45)
+            button.layer.cornerRadius = 22
+            button.clipsToBounds = true
+            button.contentHorizontalAlignment = .center
+            button.contentVerticalAlignment = .center
+
+            if #available(iOS 14.0, *) {
+                button.showsMenuAsPrimaryAction = true
+            } else {
+                button.addTarget(self, action: #selector(showSubtitleActionSheet), for: .touchUpInside)
+            }
+
+            overlayView.addSubview(button)
+            NSLayoutConstraint.activate([
+                button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 60),
+                button.leadingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+                button.widthAnchor.constraint(equalToConstant: 44),
+                button.heightAnchor.constraint(equalToConstant: 44)
+            ])
+            subtitleButton = button
+        }
+        subtitleButton?.isHidden = false
+        subtitleButton?.alpha = 1
+
+        if shouldShowNonHlsSubtitleButton() {
+            if #available(iOS 14.0, *) {
+                subtitleButton?.menu = buildNonHlsSubtitleMenu()
+            }
+            updateNonHlsSubtitleButtonAccessibility()
+            return
+        }
+
+        guard let playerItem,
+              let group = playerItem.asset.mediaSelectionGroup(forMediaCharacteristic: .legible),
+              !group.options.isEmpty else {
+            subtitleButton?.removeFromSuperview()
+            subtitleButton = nil
+            return
+        }
+
+        if #available(iOS 14.0, *) {
+            subtitleButton?.menu = buildSubtitleMenu(group: group)
+        }
+        updateSubtitleButtonAccessibility(group: group)
+    }
+
+    private func updateSubtitleButtonAccessibility(group: AVMediaSelectionGroup) {
+        let selectedOption = playerItem?.selectedMediaOption(in: group)
+        let currentTitle = selectedOption.map(Self.subtitleDisplayName) ?? "Off"
+        subtitleButton?.accessibilityLabel = "Subtitles"
+        subtitleButton?.accessibilityValue = currentTitle
+    }
+
+    @available(iOS 14.0, *)
+    private func buildSubtitleMenu(group: AVMediaSelectionGroup) -> UIMenu {
+        let selectedOption = playerItem?.selectedMediaOption(in: group)
+
+        let offAction = UIAction(
+            title: "Off",
+            state: selectedOption == nil ? .on : .off
+        ) { [weak self] _ in
+            guard let self, let playerItem = self.playerItem else { return }
+            playerItem.select(nil, in: group)
+            self.refreshSubtitleButton()
+        }
+
+        let trackActions = group.options.map { option in
+            UIAction(
+                title: Self.subtitleDisplayName(option),
+                state: option == selectedOption ? .on : .off
+            ) { [weak self] _ in
+                guard let self, let playerItem = self.playerItem else { return }
+                playerItem.select(option, in: group)
+                self.refreshSubtitleButton()
+            }
+        }
+
+        return UIMenu(title: "Subtitles", children: [offAction] + trackActions)
+    }
+
+    @available(iOS 14.0, *)
+    private func buildNonHlsSubtitleMenu() -> UIMenu {
+        let offAction = UIAction(
+            title: "Off",
+            state: selectedNonHlsSubtitleIndex == nil ? .on : .off
+        ) { [weak self] _ in
+            self?.switchNonHlsSubtitleTrack(index: nil)
+        }
+
+        let trackActions = validNonHlsSubtitleTracks.map { index, track in
+            UIAction(
+                title: Self.nonHlsSubtitleDisplayName(track: track, index: index),
+                state: selectedNonHlsSubtitleIndex == index ? .on : .off
+            ) { [weak self] _ in
+                self?.switchNonHlsSubtitleTrack(index: index)
+            }
+        }
+
+        return UIMenu(title: "Subtitles", children: [offAction] + trackActions)
+    }
+
+    @objc
+    private func showSubtitleActionSheet() {
+        if shouldShowNonHlsSubtitleButton() {
+            showNonHlsSubtitleActionSheet()
+            return
+        }
+
+        guard let playerVC = playerViewController,
+              let playerItem,
+              let group = playerItem.asset.mediaSelectionGroup(forMediaCharacteristic: .legible),
+              !group.options.isEmpty else {
+            return
+        }
+
+        let sheet = UIAlertController(title: "Subtitles", message: nil, preferredStyle: .actionSheet)
+        let selectedOption = playerItem.selectedMediaOption(in: group)
+
+        let offTitle = selectedOption == nil ? "Off ✓" : "Off"
+        sheet.addAction(UIAlertAction(title: offTitle, style: .default) { [weak self] _ in
+            guard let self else { return }
+            playerItem.select(nil, in: group)
+            self.refreshSubtitleButton()
+        })
+
+        for option in group.options {
+            let isSelected = option == selectedOption
+            let title = isSelected ? "\(Self.subtitleDisplayName(option)) ✓" : Self.subtitleDisplayName(option)
+            sheet.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+                guard let self else { return }
+                playerItem.select(option, in: group)
+                self.refreshSubtitleButton()
+            })
+        }
+
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = sheet.popoverPresentationController,
+           let subtitleButton {
+            popover.sourceView = subtitleButton
+            popover.sourceRect = subtitleButton.bounds
+        }
+        playerVC.present(sheet, animated: true)
+    }
+
+    private func showNonHlsSubtitleActionSheet() {
+        guard let playerVC = playerViewController else { return }
+
+        let sheet = UIAlertController(title: "Subtitles", message: nil, preferredStyle: .actionSheet)
+        let offTitle = selectedNonHlsSubtitleIndex == nil ? "Off ✓" : "Off"
+        sheet.addAction(UIAlertAction(title: offTitle, style: .default) { [weak self] _ in
+            self?.switchNonHlsSubtitleTrack(index: nil)
+        })
+
+        for (index, track) in validNonHlsSubtitleTracks {
+            let isSelected = selectedNonHlsSubtitleIndex == index
+            let label = Self.nonHlsSubtitleDisplayName(track: track, index: index)
+            let title = isSelected ? "\(label) ✓" : label
+            sheet.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+                self?.switchNonHlsSubtitleTrack(index: index)
+            })
+        }
+
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = sheet.popoverPresentationController,
+           let subtitleButton {
+            popover.sourceView = subtitleButton
+            popover.sourceRect = subtitleButton.bounds
+        }
+        playerVC.present(sheet, animated: true)
+    }
+
+    private static func subtitleDisplayName(_ option: AVMediaSelectionOption) -> String {
+        let optionDisplayName = option.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !optionDisplayName.isEmpty {
+            return localizedLanguageName(from: optionDisplayName) ?? optionDisplayName
+        }
+        if let tag = option.extendedLanguageTag, !tag.isEmpty {
+            return localizedLanguageName(from: tag) ?? tag
+        }
+        if let localeId = option.locale?.identifier, !localeId.isEmpty {
+            return localizedLanguageName(from: localeId) ?? localeId
+        }
+        return "Unknown"
+    }
+
+    private static func nonHlsSubtitleDisplayName(track: VideoSubtitleTrack, index: Int) -> String {
+        if let language = track.language?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !language.isEmpty {
+            return localizedLanguageName(from: language) ?? language
+        }
+        return "Subtitle \(index + 1)"
+    }
+
+    private static func localizedLanguageName(from rawValue: String) -> String? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let normalized = trimmed.replacingOccurrences(of: "_", with: "-")
+
+        if let identifierName = Locale.current.localizedString(forIdentifier: normalized),
+           !identifierName.isEmpty,
+           identifierName.caseInsensitiveCompare(trimmed) != .orderedSame {
+            return identifierName
+        }
+
+        if let languageCodeName = Locale.current.localizedString(forLanguageCode: normalized.lowercased()),
+           !languageCodeName.isEmpty,
+           languageCodeName.caseInsensitiveCompare(trimmed) != .orderedSame {
+            return languageCodeName
+        }
+
+        return nil
+    }
+
+    private func updateNonHlsSubtitleButtonAccessibility() {
+        let title: String
+        if let index = selectedNonHlsSubtitleIndex,
+           subtitleTracks.indices.contains(index) {
+            title = Self.nonHlsSubtitleDisplayName(track: subtitleTracks[index], index: index)
+        } else {
+            title = "Off"
+        }
+        subtitleButton?.accessibilityLabel = "Subtitles"
+        subtitleButton?.accessibilityValue = title
+    }
+
+    private func switchNonHlsSubtitleTrack(index: Int?) {
+        guard nonHlsSubtitleModeEnabled,
+              selectedNonHlsSubtitleIndex != index else {
+            refreshSubtitleButton()
+            return
+        }
+        guard let videoURL = Self.resolveMediaURL(videoUrl) else { return }
+
+        if let index, !validNonHlsSubtitleTracks.contains(where: { $0.index == index }) {
+            return
+        }
+
+        selectedNonHlsSubtitleIndex = index
+        nonHlsBootstrapLoadId = nil
+
+        Task {
+            let baseAsset = makeVideoAsset(url: videoURL, subtitleTracks: [])
+            let trackSelection: [VideoSubtitleTrack]
+            if let index {
+                trackSelection = [subtitleTracks[index]]
+            } else {
+                trackSelection = []
+            }
+
+            let newItem = await ProgressiveVideoPlayerItemFactory.createPlayerItem(
+                videoAsset: baseAsset,
+                subtitleTracks: trackSelection
+            )
+
+            await MainActor.run {
+                guard self.nonHlsSubtitleModeEnabled,
+                      self.selectedNonHlsSubtitleIndex == index else {
+                    return
+                }
+                self.replaceCurrentItemPreservingPlayback(with: newItem)
+                self.refreshSubtitleButton()
+            }
+        }
+    }
+
+    private func replaceCurrentItemPreservingPlayback(with newItem: AVPlayerItem) {
+        guard let player else { return }
+
+        let previousTime = player.currentTime()
+        let wasPlaying = player.rate > 0
+        let targetRate = rate
+
+        let oldItem = playerItem
+        removePlayerItemObservers(oldItem)
+        playerItem = newItem
+        player.replaceCurrentItem(with: newItem)
+        addPlayerItemObservers(newItem)
+        setupSubtitleSelectionObserver()
+
+        player.seek(to: previousTime) { _ in
+            if wasPlaying {
+                player.play()
+                player.rate = targetRate
+            }
+        }
+    }
+
+    private func addPlayerItemObservers(_ item: AVPlayerItem) {
+        item.addObserver(self, forKeyPath: "status", options: [.new], context: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(playerDidFinishPlaying),
+            name: .AVPlayerItemDidPlayToEndTime,
+            object: item
+        )
+    }
+
+    private func removePlayerItemObservers(_ item: AVPlayerItem?) {
+        guard let item else { return }
+        item.removeObserver(self, forKeyPath: "status")
+        NotificationCenter.default.removeObserver(
+            self,
+            name: .AVPlayerItemDidPlayToEndTime,
+            object: item
+        )
+        if let subtitleSelectionObserver {
+            NotificationCenter.default.removeObserver(subtitleSelectionObserver)
+            self.subtitleSelectionObserver = nil
+        }
     }
 
     private func setupChromecast() {
@@ -210,16 +633,9 @@ class FullscreenVideoPlayer: NSObject {
     private func setupObservers() {
         guard let player = player else { return }
 
-        // Observe player status
-        playerItem?.addObserver(self, forKeyPath: "status", options: [.new], context: nil)
-
-        // Observe playback end
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(playerDidFinishPlaying),
-            name: .AVPlayerItemDidPlayToEndTime,
-            object: playerItem
-        )
+        if let playerItem {
+            addPlayerItemObservers(playerItem)
+        }
 
         // Observe time updates
         let interval = CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
@@ -235,7 +651,8 @@ class FullscreenVideoPlayer: NSObject {
         if keyPath == "status" {
             if let item = object as? AVPlayerItem {
                 if item.status == .readyToPlay {
-                    onReady?()
+                    refreshSubtitleButton()
+                    emitReadyIfNeeded()
                 }
             }
         } else if keyPath == "rate" {
@@ -278,6 +695,7 @@ class FullscreenVideoPlayer: NSObject {
         presentingViewController = viewController
         viewController.present(playerVC, animated: true) {
             playerVC.presentationController?.delegate = self
+            self.refreshSubtitleButton()
             self.play()
             completion()
         }
@@ -321,8 +739,15 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func cleanup(stopRemoteMedia: Bool = false) {
+        nonHlsBootstrapLoadId = nil
         castController?.detach(stopRemoteMedia: stopRemoteMedia)
         castController = nil
+        if let subtitleSelectionObserver {
+            NotificationCenter.default.removeObserver(subtitleSelectionObserver)
+            self.subtitleSelectionObserver = nil
+        }
+        subtitleButton?.removeFromSuperview()
+        subtitleButton = nil
         contentKeySession?.setDelegate(nil, queue: nil)
         contentKeySession = nil
         hlsResourceLoader = nil
@@ -331,7 +756,7 @@ class FullscreenVideoPlayer: NSObject {
             player?.removeTimeObserver(observer)
             timeObserver = nil
         }
-        playerItem?.removeObserver(self, forKeyPath: "status")
+        removePlayerItemObservers(playerItem)
         NotificationCenter.default.removeObserver(self)
         player?.pause()
         player = nil
@@ -389,6 +814,12 @@ class FullscreenVideoPlayer: NSObject {
         let time = currentTime ?? getCurrentTime()
         cleanup(stopRemoteMedia: true)
         onExit?(time)
+    }
+
+    private func emitReadyIfNeeded() {
+        guard !didEmitReady, let onReady else { return }
+        didEmitReady = true
+        onReady()
     }
 
     // MARK: - Playback Control
@@ -503,6 +934,9 @@ class FullscreenVideoPlayer: NSObject {
 
     func setOnReady(_ callback: @escaping () -> Void) {
         self.onReady = callback
+        if playerItem?.status == .readyToPlay {
+            emitReadyIfNeeded()
+        }
     }
 
     func setOnEnd(_ callback: @escaping () -> Void) {

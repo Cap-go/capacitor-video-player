@@ -77,6 +77,16 @@ final class HLSSubtitlePlaylistTests: XCTestCase {
         XCTAssertEqual(result.asset.url.scheme, "file")
     }
 
+    func testIsHLSStreamDetectsMpegurlQuery() {
+        let url = URL(string: "https://cdn.example.com/video?format=mpegurl")!
+        XCTAssertTrue(HLSVideoAssetFactory.isHLSStream(url))
+    }
+
+    func testIsHLSStreamRejectsProgressiveMp4() {
+        let url = URL(string: "https://cdn.example.com/video.mp4")!
+        XCTAssertFalse(HLSVideoAssetFactory.isHLSStream(url))
+    }
+
     func testMakeAssetUsesResourceLoaderForLocalHLSSubtitles() {
         let videoURL = URL(fileURLWithPath: "/var/mobile/Containers/Data/Application/stream.m3u8")
         let tracks = [
