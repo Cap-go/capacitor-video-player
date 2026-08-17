@@ -266,14 +266,17 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func installOrUpdateSubtitleButtonIfNeeded() {
-                guard shouldShowCustomSubtitleButton(),
-                            let playerVC = playerViewController else {
+        guard shouldShowCustomSubtitleButton(),
+              let playerVC = playerViewController else {
             subtitleButton?.removeFromSuperview()
             subtitleButton = nil
             return
         }
 
         if subtitleButton == nil {
+            guard let overlayView = playerVC.contentOverlayView else {
+                return
+            }
             let button = UIButton(type: .system)
             button.translatesAutoresizingMaskIntoConstraints = false
             if #available(iOS 13.0, *) {
@@ -294,15 +297,13 @@ class FullscreenVideoPlayer: NSObject {
                 button.addTarget(self, action: #selector(showSubtitleActionSheet), for: .touchUpInside)
             }
 
-            playerVC.contentOverlayView?.addSubview(button)
-            if let overlayView = playerVC.contentOverlayView {
-                // Mirror cast button placement (top offset) on the leading side.
-                let top = button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 60)
-                let leading = button.leadingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.leadingAnchor, constant: 16)
-                let width = button.widthAnchor.constraint(equalToConstant: 44)
-                let height = button.heightAnchor.constraint(equalToConstant: 44)
-                NSLayoutConstraint.activate([top, leading, width, height])
-            }
+            overlayView.addSubview(button)
+            NSLayoutConstraint.activate([
+                button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 60),
+                button.leadingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+                button.widthAnchor.constraint(equalToConstant: 44),
+                button.heightAnchor.constraint(equalToConstant: 44)
+            ])
             subtitleButton = button
         }
         subtitleButton?.isHidden = false
@@ -651,10 +652,7 @@ class FullscreenVideoPlayer: NSObject {
             if let item = object as? AVPlayerItem {
                 if item.status == .readyToPlay {
                     refreshSubtitleButton()
-                    if !didEmitReady {
-                        didEmitReady = true
-                        onReady?()
-                    }
+                    emitReadyIfNeeded()
                 }
             }
         } else if keyPath == "rate" {
@@ -697,6 +695,7 @@ class FullscreenVideoPlayer: NSObject {
         presentingViewController = viewController
         viewController.present(playerVC, animated: true) {
             playerVC.presentationController?.delegate = self
+            self.refreshSubtitleButton()
             self.play()
             completion()
         }
@@ -817,6 +816,12 @@ class FullscreenVideoPlayer: NSObject {
         onExit?(time)
     }
 
+    private func emitReadyIfNeeded() {
+        guard !didEmitReady, let onReady else { return }
+        didEmitReady = true
+        onReady()
+    }
+
     // MARK: - Playback Control
 
     func play() {
@@ -929,6 +934,9 @@ class FullscreenVideoPlayer: NSObject {
 
     func setOnReady(_ callback: @escaping () -> Void) {
         self.onReady = callback
+        if playerItem?.status == .readyToPlay {
+            emitReadyIfNeeded()
+        }
     }
 
     func setOnEnd(_ callback: @escaping () -> Void) {
