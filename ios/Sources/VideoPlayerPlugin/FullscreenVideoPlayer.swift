@@ -22,6 +22,7 @@ class FullscreenVideoPlayer: NSObject {
     private var rate: Float
     private var audioCategory: String?
     private var didActivateAudioSession: Bool = false
+    private var didEmitReady: Bool = false
     private var didEmitExit: Bool = false
     private var timeObserver: Any?
     private var onPlay: (() -> Void)?
@@ -40,8 +41,6 @@ class FullscreenVideoPlayer: NSObject {
     private var hlsResourceLoader: HLSSubtitleResourceLoader?
     private var subtitleButton: UIButton?
     private var subtitleSelectionObserver: NSObjectProtocol?
-    private var subtitleButtonTopConstraint: NSLayoutConstraint?
-    private var subtitleButtonLeadingConstraint: NSLayoutConstraint?
     private var nonHlsSubtitleModeEnabled: Bool = false
     private var selectedNonHlsSubtitleIndex: Int? = nil
     private var nonHlsBootstrapLoadId: UUID?
@@ -112,20 +111,25 @@ class FullscreenVideoPlayer: NSObject {
         }
 
         // For non-HLS media (e.g. MP4 + sidecar subtitles), initialize with only the
-        // first subtitle track and switch tracks later via the custom subtitle button.
+        // first usable subtitle track and switch tracks later via the custom subtitle button.
         if !isLikelyHlsSource {
             nonHlsSubtitleModeEnabled = true
-            selectedNonHlsSubtitleIndex = 0
+            let firstValidIndex = validNonHlsSubtitleTracks.first?.index
+            selectedNonHlsSubtitleIndex = firstValidIndex
             let baseAsset = makeVideoAsset(url: url, subtitleTracks: [])
             configurePlayer(with: AVPlayerItem(asset: baseAsset))
             completion()
+
+            guard let firstValidIndex else {
+                return
+            }
 
             let bootstrapLoadId = UUID()
             nonHlsBootstrapLoadId = bootstrapLoadId
 
             Task { [weak self] in
                 guard let self else { return }
-                let initialTrack = Array(self.subtitleTracks.prefix(1))
+                let initialTrack = [self.subtitleTracks[firstValidIndex]]
                 let item = await ProgressiveVideoPlayerItemFactory.createPlayerItem(
                     videoAsset: baseAsset,
                     subtitleTracks: initialTrack
@@ -133,7 +137,7 @@ class FullscreenVideoPlayer: NSObject {
                 await MainActor.run {
                     guard self.nonHlsSubtitleModeEnabled,
                           self.nonHlsBootstrapLoadId == bootstrapLoadId,
-                          self.selectedNonHlsSubtitleIndex == 0 else {
+                          self.selectedNonHlsSubtitleIndex == firstValidIndex else {
                         return
                     }
                     self.replaceCurrentItemPreservingPlayback(with: item)
@@ -234,8 +238,15 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private static func isLikelyHLS(_ value: String) -> Bool {
-        let lowered = value.lowercased()
-        return lowered.contains(".m3u8") || lowered.hasSuffix("m3u")
+        guard let url = resolveMediaURL(value) else { return false }
+        return HLSVideoAssetFactory.isHLSStream(url)
+    }
+
+    private var validNonHlsSubtitleTracks: [(index: Int, track: VideoSubtitleTrack)] {
+        subtitleTracks.enumerated().compactMap { index, track in
+            guard track.resolvedURL != nil else { return nil }
+            return (index, track)
+        }
     }
 
     private func shouldShowCustomSubtitleButton() -> Bool {
@@ -245,7 +256,7 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func shouldShowNonHlsSubtitleButton() -> Bool {
-        return nonHlsSubtitleModeEnabled && subtitleTracks.count > 1 && shouldShowCustomSubtitleButton()
+        return nonHlsSubtitleModeEnabled && validNonHlsSubtitleTracks.count > 1 && shouldShowCustomSubtitleButton()
     }
 
     private func refreshSubtitleButton() {
@@ -291,8 +302,6 @@ class FullscreenVideoPlayer: NSObject {
                 let width = button.widthAnchor.constraint(equalToConstant: 44)
                 let height = button.heightAnchor.constraint(equalToConstant: 44)
                 NSLayoutConstraint.activate([top, leading, width, height])
-                subtitleButtonTopConstraint = top
-                subtitleButtonLeadingConstraint = leading
             }
             subtitleButton = button
         }
@@ -364,7 +373,7 @@ class FullscreenVideoPlayer: NSObject {
             self?.switchNonHlsSubtitleTrack(index: nil)
         }
 
-        let trackActions = subtitleTracks.enumerated().map { index, track in
+        let trackActions = validNonHlsSubtitleTracks.map { index, track in
             UIAction(
                 title: Self.nonHlsSubtitleDisplayName(track: track, index: index),
                 state: selectedNonHlsSubtitleIndex == index ? .on : .off
@@ -428,7 +437,7 @@ class FullscreenVideoPlayer: NSObject {
             self?.switchNonHlsSubtitleTrack(index: nil)
         })
 
-        for (index, track) in subtitleTracks.enumerated() {
+        for (index, track) in validNonHlsSubtitleTracks {
             let isSelected = selectedNonHlsSubtitleIndex == index
             let label = Self.nonHlsSubtitleDisplayName(track: track, index: index)
             let title = isSelected ? "\(label) ✓" : label
@@ -509,7 +518,7 @@ class FullscreenVideoPlayer: NSObject {
         }
         guard let videoURL = Self.resolveMediaURL(videoUrl) else { return }
 
-        if let index, !subtitleTracks.indices.contains(index) {
+        if let index, !validNonHlsSubtitleTracks.contains(where: { $0.index == index }) {
             return
         }
 
@@ -642,7 +651,10 @@ class FullscreenVideoPlayer: NSObject {
             if let item = object as? AVPlayerItem {
                 if item.status == .readyToPlay {
                     refreshSubtitleButton()
-                    onReady?()
+                    if !didEmitReady {
+                        didEmitReady = true
+                        onReady?()
+                    }
                 }
             }
         } else if keyPath == "rate" {
@@ -737,8 +749,6 @@ class FullscreenVideoPlayer: NSObject {
         }
         subtitleButton?.removeFromSuperview()
         subtitleButton = nil
-        subtitleButtonTopConstraint = nil
-        subtitleButtonLeadingConstraint = nil
         contentKeySession?.setDelegate(nil, queue: nil)
         contentKeySession = nil
         hlsResourceLoader = nil
