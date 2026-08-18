@@ -23,7 +23,9 @@ class FullscreenVideoPlayer: NSObject {
     private var audioCategory: String?
     private var didActivateAudioSession: Bool = false
     private var didEmitReady: Bool = false
-    private var didEmitExit: Bool = false
+    private var exitEmission = ExitEmissionGuard()
+    private var isTransitioningToPictureInPicture = false
+    private var suppressDismissExit = false
     private var timeObserver: Any?
     private var onPlay: (() -> Void)?
     private var onPause: (() -> Void)?
@@ -215,11 +217,20 @@ class FullscreenVideoPlayer: NSObject {
         player = AVPlayer(playerItem: playerItem)
         player?.rate = rate
 
-        playerViewController = AVPlayerViewController()
-        playerViewController?.player = player
-        playerViewController?.showsPlaybackControls = showControls
-        playerViewController?.allowsPictureInPicturePlayback = pipEnabled
-        playerViewController?.delegate = self
+        let playerVC = DismissObservingPlayerViewController()
+        playerVC.player = player
+        playerVC.showsPlaybackControls = showControls
+        playerVC.allowsPictureInPicturePlayback = pipEnabled
+        playerVC.delegate = self
+        playerVC.shouldReportDismiss = { [weak self] in
+            guard let self else { return true }
+            return !self.isTransitioningToPictureInPicture && !self.suppressDismissExit
+        }
+        playerVC.onDismiss = { [weak self] in
+            self?.emitExitIfNeeded()
+        }
+        playerVC.adaptivePresentationDelegate = self
+        playerViewController = playerVC
 
         setupChromecast()
         setupObservers()
@@ -694,11 +705,11 @@ class FullscreenVideoPlayer: NSObject {
 
         presentingViewController = viewController
         viewController.present(playerVC, animated: true) {
-            playerVC.presentationController?.delegate = self
             self.refreshSubtitleButton()
             self.play()
             completion()
         }
+        configurePresentationDelegate(for: playerVC)
     }
 
     func show(on viewController: UIViewController, completion: @escaping () -> Void) {
@@ -712,9 +723,9 @@ class FullscreenVideoPlayer: NSObject {
         }
         presentingViewController = viewController
         viewController.present(playerVC, animated: true) {
-            playerVC.presentationController?.delegate = self
             completion()
         }
+        configurePresentationDelegate(for: playerVC)
     }
 
     func hide(completion: @escaping () -> Void) {
@@ -726,7 +737,9 @@ class FullscreenVideoPlayer: NSObject {
             completion()
             return
         }
-        playerVC.dismiss(animated: true) {
+        suppressDismissExit = true
+        playerVC.dismiss(animated: true) { [weak self] in
+            self?.suppressDismissExit = false
             completion()
         }
     }
@@ -807,13 +820,16 @@ class FullscreenVideoPlayer: NSObject {
         }
     }
 
-    private func emitExitIfNeeded(currentTime: Double? = nil) {
-        guard !didEmitExit else { return }
-        didEmitExit = true
+    private func configurePresentationDelegate(for playerVC: UIViewController) {
+        playerVC.presentationController?.delegate = self
+    }
 
-        let time = currentTime ?? getCurrentTime()
-        cleanup(stopRemoteMedia: true)
-        onExit?(time)
+    private func emitExitIfNeeded(currentTime: Double? = nil) {
+        exitEmission.emitIfNeeded {
+            let time = currentTime ?? getCurrentTime()
+            cleanup(stopRemoteMedia: true)
+            onExit?(time)
+        }
     }
 
     private func emitReadyIfNeeded() {
@@ -966,6 +982,14 @@ extension FullscreenVideoPlayer: AVPlayerViewControllerDelegate {
 
     func playerViewControllerDidEndFullScreenPresentation(_ playerViewController: AVPlayerViewController) {
         emitExitIfNeeded()
+    }
+
+    func playerViewControllerWillStartPictureInPicture(_ playerViewController: AVPlayerViewController) {
+        isTransitioningToPictureInPicture = true
+    }
+
+    func playerViewControllerDidStopPictureInPicture(_ playerViewController: AVPlayerViewController) {
+        isTransitioningToPictureInPicture = false
     }
 
     func playerViewControllerShouldAutomaticallyDismissAtPictureInPictureStart(
