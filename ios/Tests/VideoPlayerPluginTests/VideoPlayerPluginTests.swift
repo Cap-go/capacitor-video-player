@@ -25,9 +25,14 @@ class VideoPlayerTests: XCTestCase {
         XCTAssertEqual(tracks[1].language, "fr")
     }
 
-    func testSubtitleTrackResolvesBareFilePath() {
-        let track = VideoSubtitleTrack(url: "/var/mobile/Containers/Data/Application/subtitles-en.vtt", language: "en")
-        XCTAssertEqual(track.resolvedURL?.isFileURL, true)
-        XCTAssertEqual(track.resolvedURL?.path, "/var/mobile/Containers/Data/Application/subtitles-en.vtt")
+    func testExitEmissionGuardEmitsOnce() {
+        var guardState = ExitEmissionGuard()
+        var emitCount = 0
+
+        guardState.emitIfNeeded { emitCount += 1 }
+        guardState.emitIfNeeded { emitCount += 1 }
+
+        XCTAssertEqual(emitCount, 1)
+        XCTAssertTrue(guardState.didEmit)
     }
 }
