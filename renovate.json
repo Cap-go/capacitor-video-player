@@ -81,6 +81,16 @@
       "allowedVersions": "/^>=\\d+\\.0\\.0$/"
     },
     {
+      "matchManagers": [
+        "gradle-wrapper"
+      ],
+      "matchFileNames": [
+        "android/**",
+        "example-app/android/**"
+      ],
+      "allowedVersions": "<9.6.0"
+    },
+    {
       "matchPackageNames": [
         "androidx.core:core"
       ],
