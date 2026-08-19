@@ -11,9 +11,14 @@ final class AVPlayerControlsVisibilityObserver: NSObject {
     private weak var monitoredView: UIView?
     private var onVisibilityChange: ((Bool) -> Void)?
     private var retryWorkItem: DispatchWorkItem?
+    private var reanchorWorkItem: DispatchWorkItem?
+    private var hiddenObservation: NSKeyValueObservation?
+    private var alphaObservation: NSKeyValueObservation?
     private var lastReportedVisible: Bool?
     private var remainingInstallAttempts = 30
     private var isActive = false
+
+    private static let reanchorInterval: TimeInterval = 0.25
 
     deinit {
         stop()
@@ -29,12 +34,15 @@ final class AVPlayerControlsVisibilityObserver: NSObject {
         self.onVisibilityChange = onChange
         remainingInstallAttempts = 30
         installObserverIfPossible()
+        scheduleReanchorCheck()
     }
 
     func stop() {
         isActive = false
         retryWorkItem?.cancel()
         retryWorkItem = nil
+        reanchorWorkItem?.cancel()
+        reanchorWorkItem = nil
         removeMonitoredViewObserver()
         playerViewController = nil
         onVisibilityChange = nil
@@ -55,6 +63,22 @@ final class AVPlayerControlsVisibilityObserver: NSObject {
         return !controlsView.isHidden && controlsView.alpha > 0.05
     }
 
+    static func shouldReanchor(
+        monitoredView: UIView?,
+        currentControlsView: UIView?
+    ) -> Bool {
+        guard let monitoredView else {
+            return currentControlsView != nil
+        }
+        guard let currentControlsView else {
+            return true
+        }
+        if monitoredView !== currentControlsView {
+            return true
+        }
+        return monitoredView.superview == nil && monitoredView.window == nil
+    }
+
     private func installObserverIfPossible() {
         guard isActive else {
             return
@@ -70,11 +94,74 @@ final class AVPlayerControlsVisibilityObserver: NSObject {
             return
         }
 
+        if monitoredView === controlsView {
+            reportVisibilityIfNeeded(for: controlsView)
+            return
+        }
+
         removeMonitoredViewObserver()
+        attachObserver(to: controlsView)
+    }
+
+    private func attachObserver(to controlsView: UIView) {
         monitoredView = controlsView
-        controlsView.addObserver(self, forKeyPath: "hidden", options: [.new], context: nil)
-        controlsView.addObserver(self, forKeyPath: "alpha", options: [.new], context: nil)
+        hiddenObservation = controlsView.observe(\.isHidden, options: [.new]) { [weak self] view, _ in
+            self?.reportVisibilityIfNeeded(for: view)
+        }
+        alphaObservation = controlsView.observe(\.alpha, options: [.new]) { [weak self] view, _ in
+            self?.reportVisibilityIfNeeded(for: view)
+        }
         reportVisibilityIfNeeded(for: controlsView)
+    }
+
+    private func reanchorIfNeeded() {
+        guard isActive else {
+            return
+        }
+
+        guard let playerView = playerViewController?.view else {
+            if monitoredView != nil {
+                removeMonitoredViewObserver()
+            }
+            scheduleRetry()
+            return
+        }
+
+        let currentControlsView = Self.controlsContainer(in: playerView)
+        guard Self.shouldReanchor(
+            monitoredView: monitoredView,
+            currentControlsView: currentControlsView
+        ) else {
+            if let monitoredView {
+                reportVisibilityIfNeeded(for: monitoredView)
+            }
+            return
+        }
+
+        removeMonitoredViewObserver()
+        if let currentControlsView {
+            remainingInstallAttempts = 30
+            attachObserver(to: currentControlsView)
+        } else {
+            scheduleRetry()
+        }
+    }
+
+    private func scheduleReanchorCheck() {
+        reanchorWorkItem?.cancel()
+        guard isActive else {
+            return
+        }
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, self.isActive else {
+                return
+            }
+            self.reanchorIfNeeded()
+            self.scheduleReanchorCheck()
+        }
+        reanchorWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.reanchorInterval, execute: workItem)
     }
 
     private func scheduleRetry() {
@@ -101,10 +188,8 @@ final class AVPlayerControlsVisibilityObserver: NSObject {
     }
 
     private func removeMonitoredViewObserver() {
-        if let monitoredView {
-            monitoredView.removeObserver(self, forKeyPath: "hidden")
-            monitoredView.removeObserver(self, forKeyPath: "alpha")
-        }
+        hiddenObservation = nil
+        alphaObservation = nil
         monitoredView = nil
     }
 
@@ -115,19 +200,6 @@ final class AVPlayerControlsVisibilityObserver: NSObject {
         }
         lastReportedVisible = visible
         onVisibilityChange?(visible)
-    }
-
-    override func observeValue(
-        forKeyPath keyPath: String?,
-        of object: Any?,
-        change: [NSKeyValueChangeKey: Any]?,
-        context: UnsafeMutableRawPointer?
-    ) {
-        guard keyPath == "hidden" || keyPath == "alpha",
-              let controlsView = object as? UIView else {
-            return
-        }
-        reportVisibilityIfNeeded(for: controlsView)
     }
 }
 

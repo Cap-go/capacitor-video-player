@@ -64,4 +64,40 @@ final class VideoPlayerCastControllerTests: XCTestCase {
             controlsView
         )
     }
+
+    func testShouldReanchorWhenControlsViewChanges() {
+        let oldControls = UIView()
+        let newControls = UIView()
+
+        XCTAssertTrue(
+            AVPlayerControlsVisibilityObserver.shouldReanchor(
+                monitoredView: oldControls,
+                currentControlsView: newControls
+            )
+        )
+    }
+
+    func testShouldReanchorWhenMonitoredViewIsDetached() {
+        let detachedControls = UIView()
+
+        XCTAssertTrue(
+            AVPlayerControlsVisibilityObserver.shouldReanchor(
+                monitoredView: detachedControls,
+                currentControlsView: detachedControls
+            )
+        )
+    }
+
+    func testShouldNotReanchorWhenMonitoringCurrentControls() {
+        let container = UIView()
+        let controls = UIView()
+        container.addSubview(controls)
+
+        XCTAssertFalse(
+            AVPlayerControlsVisibilityObserver.shouldReanchor(
+                monitoredView: controls,
+                currentControlsView: controls
+            )
+        )
+    }
 }
