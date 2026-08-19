@@ -88,7 +88,8 @@ final class VideoPlayerCastController: NSObject {
 
     func installOverlayIfNeeded() {
         let installOnMain = { [weak self] in
-            self?.installOverlayIfNeededOnMain()
+            guard let self else { return }
+            self.installOverlayIfNeededOnMain()
         }
 
         if Thread.isMainThread {
