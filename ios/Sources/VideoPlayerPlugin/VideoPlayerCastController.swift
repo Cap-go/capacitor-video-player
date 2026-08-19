@@ -38,9 +38,11 @@ final class VideoPlayerCastController: NSObject {
     private var onPlay: (() -> Void)?
     private var onPause: (() -> Void)?
     private var onEnd: (() -> Void)?
-    private var controlsHideTimer: Timer?
-    private weak var tapGestureRecognizer: UITapGestureRecognizer?
-    private static let overlayAutoHideDuration: TimeInterval = 3.0
+    private let controlsVisibilityObserver = AVPlayerControlsVisibilityObserver()
+    private var localSeekTimeObserver: Any?
+    private var timeJumpObserver: NSObjectProtocol?
+    private var lastForwardedSeekTime: Double?
+    private var arePlaybackControlsVisible = true
 
     var isCasting: Bool {
         return remoteMediaClient != nil && isLoadedOnCast
@@ -73,9 +75,7 @@ final class VideoPlayerCastController: NSObject {
             }
 
             GCKCastContext.sharedInstance().sessionManager.add(self)
-            self.addCastButton(to: playerViewController)
-            self.addCastIndicator(to: playerViewController)
-            self.beginObservingPlayerTaps(playerViewController)
+            self.installOverlayIfNeeded()
             self.loadMediaIfCastSessionAvailable()
         }
 
@@ -83,6 +83,18 @@ final class VideoPlayerCastController: NSObject {
             attachOnMain()
         } else {
             DispatchQueue.main.async(execute: attachOnMain)
+        }
+    }
+
+    func installOverlayIfNeeded() {
+        let installOnMain = { [weak self] in
+            self?.installOverlayIfNeededOnMain()
+        }
+
+        if Thread.isMainThread {
+            installOnMain()
+        } else {
+            DispatchQueue.main.async(execute: installOnMain)
         }
     }
 
@@ -106,13 +118,8 @@ final class VideoPlayerCastController: NSObject {
 
             self.stopRemoteMediaObservation()
             GCKCastContext.sharedInstance().sessionManager.remove(self)
-            self.controlsHideTimer?.invalidate()
-            self.controlsHideTimer = nil
-            if let tapRecognizer = self.tapGestureRecognizer,
-               let view = self.playerViewController?.view {
-                view.removeGestureRecognizer(tapRecognizer)
-            }
-            self.tapGestureRecognizer = nil
+            self.stopObservingLocalSeek()
+            self.controlsVisibilityObserver.stop()
             self.castButton?.removeFromSuperview()
             self.castButton = nil
             self.castIndicatorLabel?.removeFromSuperview()
@@ -158,6 +165,12 @@ final class VideoPlayerCastController: NSObject {
         options.relative = false
         options.resumeState = .unchanged
         remoteMediaClient.seek(with: options)
+        player?.seek(
+            to: CMTime(seconds: time, preferredTimescale: 600),
+            toleranceBefore: .zero,
+            toleranceAfter: .zero
+        )
+        lastForwardedSeekTime = time
         return true
     }
 
@@ -272,12 +285,29 @@ private extension VideoPlayerCastController {
         return GCKCastContext.setSharedInstanceWith(options, error: &error)
     }
 
-    func addCastButton(to playerViewController: AVPlayerViewController) {
-        guard castButton == nil else {
+    func installOverlayIfNeededOnMain() {
+        guard !isDetached,
+              castButton == nil,
+              let playerViewController = playerViewController else {
             return
         }
 
-        guard let overlayView = playerViewController.view else {
+        guard let overlayView = VideoPlayerCastOverlayLayout.overlayView(for: playerViewController) else {
+            DispatchQueue.main.async { [weak self] in
+                self?.installOverlayIfNeededOnMain()
+            }
+            return
+        }
+
+        addCastButton(to: overlayView)
+        addCastIndicator(to: overlayView)
+        beginObservingControlsVisibility(playerViewController)
+        beginObservingLocalSeekWhileCasting()
+        updateCastOverlayVisibility(visible: arePlaybackControlsVisible)
+    }
+
+    func addCastButton(to overlayView: UIView) {
+        guard castButton == nil else {
             return
         }
 
@@ -303,12 +333,8 @@ private extension VideoPlayerCastController {
         castButton = button
     }
 
-    func addCastIndicator(to playerViewController: AVPlayerViewController) {
+    func addCastIndicator(to overlayView: UIView) {
         guard castIndicatorLabel == nil else {
-            return
-        }
-
-        guard let overlayView = playerViewController.view else {
             return
         }
 
@@ -339,46 +365,73 @@ private extension VideoPlayerCastController {
         castIndicatorLabel = label
     }
 
-    func beginObservingPlayerTaps(_ playerViewController: AVPlayerViewController) {
-        guard let overlayView = playerViewController.view else { return }
-        // Remove any existing recognizer before adding a new one to prevent duplicates.
-        if let existing = tapGestureRecognizer {
-            overlayView.removeGestureRecognizer(existing)
-        }
-        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handlePlayerTap))
-        tapRecognizer.cancelsTouchesInView = false
-        overlayView.addGestureRecognizer(tapRecognizer)
-        self.tapGestureRecognizer = tapRecognizer
-        // Show the overlay immediately; it will auto-hide after the standard controls delay.
-        showOverlayControls()
-    }
-
-    @objc func handlePlayerTap() {
-        showOverlayControls()
-    }
-
-    func showOverlayControls() {
-        castButton?.isHidden = false
-        castIndicatorLabel?.isHidden = !isCasting
-        controlsHideTimer?.invalidate()
-        controlsHideTimer = Timer.scheduledTimer(withTimeInterval: Self.overlayAutoHideDuration, repeats: false) { [weak self] _ in
-            self?.hideOverlayControls()
+    func beginObservingControlsVisibility(_ playerViewController: AVPlayerViewController) {
+        controlsVisibilityObserver.start(observing: playerViewController) { [weak self] visible in
+            self?.arePlaybackControlsVisible = visible
+            self?.updateCastOverlayVisibility(visible: visible)
         }
     }
 
-    func hideOverlayControls() {
-        controlsHideTimer = nil
-        let button = castButton
-        let label = castIndicatorLabel
-        UIView.animate(withDuration: 0.3, animations: {
-            button?.alpha = 0
-            label?.alpha = 0
-        }, completion: { _ in
-            button?.isHidden = true
-            label?.isHidden = true
-            button?.alpha = 1
-            label?.alpha = 1
-        })
+    func updateCastOverlayVisibility(visible: Bool) {
+        castButton?.isHidden = !visible
+        castButton?.alpha = visible ? 1 : 0
+        castIndicatorLabel?.isHidden = !visible || !isCasting
+        castIndicatorLabel?.alpha = visible ? 1 : 0
+    }
+
+    func beginObservingLocalSeekWhileCasting() {
+        stopObservingLocalSeek()
+        guard let player = player else {
+            return
+        }
+
+        timeJumpObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemTimeJumped,
+            object: player.currentItem,
+            queue: .main
+        ) { [weak self] _ in
+            self?.forwardLocalSeekToRemoteIfNeeded()
+        }
+
+        let interval = CMTime(seconds: 0.25, preferredTimescale: 600)
+        localSeekTimeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] _ in
+            self?.forwardLocalSeekToRemoteIfNeeded()
+        }
+    }
+
+    func stopObservingLocalSeek() {
+        if let timeJumpObserver {
+            NotificationCenter.default.removeObserver(timeJumpObserver)
+            self.timeJumpObserver = nil
+        }
+        if let localSeekTimeObserver, let player = player {
+            player.removeTimeObserver(localSeekTimeObserver)
+            self.localSeekTimeObserver = nil
+        }
+    }
+
+    func forwardLocalSeekToRemoteIfNeeded() {
+        guard !isDetached,
+              isCasting,
+              let remoteMediaClient = remoteMediaClient,
+              let player = player else {
+            return
+        }
+
+        let localTime = player.currentTime().seconds
+        guard VideoPlayerCastSeekSync.shouldForwardLocalSeek(
+            localTime: localTime,
+            lastForwardedTime: lastForwardedSeekTime
+        ) else {
+            return
+        }
+
+        lastForwardedSeekTime = localTime
+        let options = GCKMediaSeekOptions()
+        options.interval = localTime
+        options.relative = false
+        options.resumeState = .unchanged
+        remoteMediaClient.seek(with: options)
     }
 
     func loadMediaIfCastSessionAvailable() {
@@ -401,6 +454,9 @@ private extension VideoPlayerCastController {
         mediaLoadRequestDataBuilder.mediaInformation = mediaInfo
         mediaLoadRequestDataBuilder.autoplay = NSNumber(value: localWasPlaying)
         mediaLoadRequestDataBuilder.startTime = playPosition.isFinite ? playPosition : 0
+        if playPosition.isFinite {
+            lastForwardedSeekTime = playPosition
+        }
         let request = remoteMediaClient.loadMedia(with: mediaLoadRequestDataBuilder.build())
         request.delegate = self
         mediaLoadRequest = request
@@ -419,6 +475,12 @@ private extension VideoPlayerCastController {
 
         observeRemoteMediaClient(remoteMediaClient)
         isLoadedOnCast = isCurrentVideo(remoteMediaClient.mediaStatus?.mediaInformation)
+        if isLoadedOnCast {
+            let position = remoteMediaClient.approximateStreamPosition()
+            if position.isFinite {
+                lastForwardedSeekTime = position
+            }
+        }
         handleRemoteMediaStatus(remoteMediaClient.mediaStatus)
     }
 
@@ -612,9 +674,12 @@ private extension VideoPlayerCastController {
         isLoadingOnCast = false
         isLoadedOnCast = true
         didNotifyRemoteEnd = false
+        if let position = player?.currentTime().seconds, position.isFinite {
+            lastForwardedSeekTime = position
+        }
         DispatchQueue.main.async { [weak self] in
-            // Reveal the cast indicator and extend the controls visibility window.
-            self?.showOverlayControls()
+            guard let self else { return }
+            self.updateCastOverlayVisibility(visible: self.arePlaybackControlsVisible)
         }
         flushPendingCastCommands()
     }
@@ -754,6 +819,8 @@ final class VideoPlayerCastController {
         _ = playerViewController
         _ = player
     }
+
+    func installOverlayIfNeeded() {}
 
     func detach(stopRemoteMedia: Bool) {
         _ = stopRemoteMedia
