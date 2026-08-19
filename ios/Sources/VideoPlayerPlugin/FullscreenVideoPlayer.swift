@@ -706,6 +706,7 @@ class FullscreenVideoPlayer: NSObject {
         presentingViewController = viewController
         viewController.present(playerVC, animated: true) {
             self.refreshSubtitleButton()
+            self.castController?.installOverlayIfNeeded()
             self.play()
             completion()
         }
