@@ -12,18 +12,27 @@ final class AVPlayerControlsVisibilityObserver: NSObject {
     private var onVisibilityChange: ((Bool) -> Void)?
     private var retryWorkItem: DispatchWorkItem?
     private var lastReportedVisible: Bool?
+    private var remainingInstallAttempts = 30
+    private var isActive = false
+
+    deinit {
+        stop()
+    }
 
     func start(
         observing playerViewController: AVPlayerViewController,
         onChange: @escaping (Bool) -> Void
     ) {
         stop()
+        isActive = true
         self.playerViewController = playerViewController
         self.onVisibilityChange = onChange
+        remainingInstallAttempts = 30
         installObserverIfPossible()
     }
 
     func stop() {
+        isActive = false
         retryWorkItem?.cancel()
         retryWorkItem = nil
         removeMonitoredViewObserver()
@@ -47,6 +56,10 @@ final class AVPlayerControlsVisibilityObserver: NSObject {
     }
 
     private func installObserverIfPossible() {
+        guard isActive else {
+            return
+        }
+
         guard let playerView = playerViewController?.view else {
             scheduleRetry()
             return
@@ -65,9 +78,23 @@ final class AVPlayerControlsVisibilityObserver: NSObject {
     }
 
     private func scheduleRetry() {
+        guard isActive else {
+            return
+        }
+
         retryWorkItem?.cancel()
+        guard remainingInstallAttempts > 0 else {
+            lastReportedVisible = true
+            onVisibilityChange?(true)
+            return
+        }
+        remainingInstallAttempts -= 1
+
         let workItem = DispatchWorkItem { [weak self] in
-            self?.installObserverIfPossible()
+            guard let self, self.isActive else {
+                return
+            }
+            self.installObserverIfPossible()
         }
         retryWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)

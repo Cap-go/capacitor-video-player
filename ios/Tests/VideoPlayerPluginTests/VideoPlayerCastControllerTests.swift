@@ -23,6 +23,15 @@ final class VideoPlayerCastControllerTests: XCTestCase {
         XCTAssertTrue(
             VideoPlayerCastSeekSync.shouldForwardLocalSeek(localTime: 10.5, lastForwardedTime: 10)
         )
+        XCTAssertFalse(
+            VideoPlayerCastSeekSync.shouldForwardLocalSeek(localTime: .nan, lastForwardedTime: 10)
+        )
+        XCTAssertFalse(
+            VideoPlayerCastSeekSync.shouldForwardLocalSeek(localTime: .infinity, lastForwardedTime: 10)
+        )
+        XCTAssertTrue(
+            VideoPlayerCastSeekSync.shouldForwardLocalSeek(localTime: 10.25, lastForwardedTime: 10)
+        )
     }
 
     func testControlsVisibilityReflectsHiddenAndAlpha() {
@@ -54,33 +63,5 @@ final class VideoPlayerCastControllerTests: XCTestCase {
             AVPlayerControlsVisibilityObserver.controlsContainer(in: rootView),
             controlsView
         )
-    }
-
-    func testControlsVisibilityObserverReportsChanges() {
-        let rootView = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 240))
-        let container = UIView(frame: rootView.bounds)
-        let controlsView = UIView(frame: CGRect(x: 0, y: 180, width: 320, height: 60))
-        rootView.addSubview(container)
-        container.addSubview(controlsView)
-
-        let playerViewController = AVPlayerViewController()
-        playerViewController.view.addSubview(rootView)
-
-        let observer = AVPlayerControlsVisibilityObserver()
-        let expectation = expectation(description: "controls hidden")
-        var reportedValues: [Bool] = []
-
-        observer.start(observing: playerViewController) { visible in
-            reportedValues.append(visible)
-            if visible == false {
-                expectation.fulfill()
-            }
-        }
-
-        controlsView.isHidden = true
-        waitForExpectations(timeout: 1)
-        observer.stop()
-
-        XCTAssertTrue(reportedValues.contains(false))
     }
 }

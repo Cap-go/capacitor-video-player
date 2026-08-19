@@ -41,8 +41,17 @@ final class VideoPlayerCastController: NSObject {
     private let controlsVisibilityObserver = AVPlayerControlsVisibilityObserver()
     private var localSeekTimeObserver: Any?
     private var timeJumpObserver: NSObjectProtocol?
+    private var observedPlayerForSeek: AVPlayer?
+    private var overlayInstallRetryWorkItem: DispatchWorkItem?
+    private var overlayInstallAttemptsRemaining = 0
     private var lastForwardedSeekTime: Double?
     private var arePlaybackControlsVisible = true
+
+    deinit {
+        overlayInstallRetryWorkItem?.cancel()
+        stopObservingLocalSeek()
+        controlsVisibilityObserver.stop()
+    }
 
     var isCasting: Bool {
         return remoteMediaClient != nil && isLoadedOnCast
@@ -87,6 +96,7 @@ final class VideoPlayerCastController: NSObject {
     }
 
     func installOverlayIfNeeded() {
+        overlayInstallAttemptsRemaining = 30
         let installOnMain = { [weak self] in
             guard let self else { return }
             self.installOverlayIfNeededOnMain()
@@ -108,17 +118,19 @@ final class VideoPlayerCastController: NSObject {
         pendingCastCommands.removeAll()
 
         DispatchQueue.main.async { [weak self] in
-            guard let self = self,
-                  GCKCastContext.isSharedInstanceInitialized() else {
-                return
+            guard let self else { return }
+
+            if GCKCastContext.isSharedInstanceInitialized() {
+                if stopRemoteMedia {
+                    self.remoteMediaClient?.stop()
+                }
+                self.stopRemoteMediaObservation()
+                GCKCastContext.sharedInstance().sessionManager.remove(self)
+            } else {
+                self.stopRemoteMediaObservation()
             }
 
-            if stopRemoteMedia {
-                self.remoteMediaClient?.stop()
-            }
-
-            self.stopRemoteMediaObservation()
-            GCKCastContext.sharedInstance().sessionManager.remove(self)
+            self.cancelOverlayInstallRetry()
             self.stopObservingLocalSeek()
             self.controlsVisibilityObserver.stop()
             self.castButton?.removeFromSuperview()
@@ -159,6 +171,7 @@ final class VideoPlayerCastController: NSObject {
             return false
         }
         guard isLoadedOnCast else {
+            syncLocalPlayhead(to: time)
             return enqueuePendingCastCommand(.seek(time))
         }
         let options = GCKMediaSeekOptions()
@@ -166,12 +179,7 @@ final class VideoPlayerCastController: NSObject {
         options.relative = false
         options.resumeState = .unchanged
         remoteMediaClient.seek(with: options)
-        player?.seek(
-            to: CMTime(seconds: time, preferredTimescale: 600),
-            toleranceBefore: .zero,
-            toleranceAfter: .zero
-        )
-        lastForwardedSeekTime = time
+        syncLocalPlayhead(to: time)
         return true
     }
 
@@ -294,17 +302,51 @@ private extension VideoPlayerCastController {
         }
 
         guard let overlayView = VideoPlayerCastOverlayLayout.overlayView(for: playerViewController) else {
-            DispatchQueue.main.async { [weak self] in
-                self?.installOverlayIfNeededOnMain()
-            }
+            scheduleOverlayInstallRetry()
             return
         }
 
+        cancelOverlayInstallRetry()
         addCastButton(to: overlayView)
         addCastIndicator(to: overlayView)
         beginObservingControlsVisibility(playerViewController)
-        beginObservingLocalSeekWhileCasting()
         updateCastOverlayVisibility(visible: arePlaybackControlsVisible)
+    }
+
+    func scheduleOverlayInstallRetry() {
+        guard !isDetached, castButton == nil, overlayInstallAttemptsRemaining > 0 else {
+            return
+        }
+        overlayInstallAttemptsRemaining -= 1
+        overlayInstallRetryWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, !self.isDetached else { return }
+            self.installOverlayIfNeededOnMain()
+        }
+        overlayInstallRetryWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
+    }
+
+    func cancelOverlayInstallRetry() {
+        overlayInstallRetryWorkItem?.cancel()
+        overlayInstallRetryWorkItem = nil
+        overlayInstallAttemptsRemaining = 0
+    }
+
+    func syncLocalPlayhead(to time: Double) {
+        let apply = { [weak self] in
+            self?.player?.seek(
+                to: CMTime(seconds: time, preferredTimescale: 600),
+                toleranceBefore: .zero,
+                toleranceAfter: .zero
+            )
+            self?.lastForwardedSeekTime = time
+        }
+        if Thread.isMainThread {
+            apply()
+        } else {
+            DispatchQueue.main.async(execute: apply)
+        }
     }
 
     func addCastButton(to overlayView: UIView) {
@@ -386,12 +428,18 @@ private extension VideoPlayerCastController {
             return
         }
 
+        observedPlayerForSeek = player
         timeJumpObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemTimeJumped,
-            object: player.currentItem,
+            object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.forwardLocalSeekToRemoteIfNeeded()
+        ) { [weak self] notification in
+            guard let self,
+                  let item = notification.object as? AVPlayerItem,
+                  item === self.player?.currentItem else {
+                return
+            }
+            self.forwardLocalSeekToRemoteIfNeeded()
         }
 
         let interval = CMTime(seconds: 0.25, preferredTimescale: 600)
@@ -405,9 +453,20 @@ private extension VideoPlayerCastController {
             NotificationCenter.default.removeObserver(timeJumpObserver)
             self.timeJumpObserver = nil
         }
-        if let localSeekTimeObserver, let player = player {
-            player.removeTimeObserver(localSeekTimeObserver)
+        if let localSeekTimeObserver {
+            observedPlayerForSeek?.removeTimeObserver(localSeekTimeObserver)
             self.localSeekTimeObserver = nil
+        }
+        observedPlayerForSeek = nil
+    }
+
+    func syncCastingObserversIfNeeded() {
+        guard isCasting else {
+            stopObservingLocalSeek()
+            return
+        }
+        if localSeekTimeObserver == nil {
+            beginObservingLocalSeekWhileCasting()
         }
     }
 
@@ -477,10 +536,12 @@ private extension VideoPlayerCastController {
         observeRemoteMediaClient(remoteMediaClient)
         isLoadedOnCast = isCurrentVideo(remoteMediaClient.mediaStatus?.mediaInformation)
         if isLoadedOnCast {
+            player?.pause()
             let position = remoteMediaClient.approximateStreamPosition()
             if position.isFinite {
-                lastForwardedSeekTime = position
+                syncLocalPlayhead(to: position)
             }
+            syncCastingObserversIfNeeded()
         }
         handleRemoteMediaStatus(remoteMediaClient.mediaStatus)
     }
@@ -540,6 +601,7 @@ private extension VideoPlayerCastController {
             options.relative = false
             options.resumeState = .unchanged
             remoteMediaClient.seek(with: options)
+            syncLocalPlayhead(to: time)
         case .volume(let volume):
             remoteMediaClient.setStreamVolume(volume)
         case .muted(let muted):
@@ -654,6 +716,9 @@ private extension VideoPlayerCastController {
         stopRemoteMediaObservation()
         clearMediaLoadRequest()
         pendingCastCommands.removeAll()
+        DispatchQueue.main.async { [weak self] in
+            self?.syncCastingObserversIfNeeded()
+        }
         let seekTime = CMTime(seconds: position, preferredTimescale: 600)
         player?.seek(to: seekTime) { [weak self] _ in
             if shouldResume {
@@ -675,11 +740,12 @@ private extension VideoPlayerCastController {
         isLoadingOnCast = false
         isLoadedOnCast = true
         didNotifyRemoteEnd = false
-        if let position = player?.currentTime().seconds, position.isFinite {
-            lastForwardedSeekTime = position
-        }
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            if let position = self.player?.currentTime().seconds, position.isFinite {
+                self.lastForwardedSeekTime = position
+            }
+            self.syncCastingObserversIfNeeded()
             self.updateCastOverlayVisibility(visible: self.arePlaybackControlsVisible)
         }
         flushPendingCastCommands()
@@ -696,6 +762,9 @@ private extension VideoPlayerCastController {
         clearMediaLoadRequest()
         isLoadingOnCast = false
         isLoadedOnCast = false
+        DispatchQueue.main.async { [weak self] in
+            self?.syncCastingObserversIfNeeded()
+        }
         if !pendingCastCommands.isEmpty {
             let didApplyPlaybackCommand = applyPendingCastCommandsToLocalPlayer()
             if localWasPlaying && !didApplyPlaybackCommand {
