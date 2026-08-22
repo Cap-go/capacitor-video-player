@@ -2,13 +2,6 @@ import XCTest
 @testable import VideoPlayerPlugin
 
 class VideoPlayerTests: XCTestCase {
-    func testEcho() {
-        let implementation = VideoPlayer()
-        let value = "Hello, World!"
-        let result = implementation.echo(value)
-        XCTAssertEqual(value, result)
-    }
-
     func testSubtitleTrackParserPrefersSubtitlesArray() {
         let tracks = VideoSubtitleTrackParser.parse(
             from: [
