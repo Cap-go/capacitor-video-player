@@ -11,4 +11,8 @@ if [[ -z "${SIMULATOR_ID:-}" ]]; then
   exit 1
 fi
 
-xcodebuild test -scheme CapgoCapacitorVideoPlayer -destination "id=${SIMULATOR_ID}" "$@"
+# Cap CI/script timeouts at 10 minutes; guard direct local runs too.
+perl -e 'alarm shift; exec @ARGV' 600 xcodebuild test \
+  -scheme CapgoCapacitorVideoPlayer \
+  -destination "id=${SIMULATOR_ID}" \
+  "$@"
