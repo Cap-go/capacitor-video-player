@@ -13,12 +13,21 @@ fi
 
 DESTINATION="id=${SIMULATOR_ID}"
 SCHEME="CapgoCapacitorVideoPlayer"
+SCRIPT_TIMEOUT_SECONDS=600
+DEADLINE=$((SECONDS + SCRIPT_TIMEOUT_SECONDS))
+XCODEBUILD_ARGS=("$@")
+
+timeout_dir=$(mktemp -d "${TMPDIR:-/tmp}/test-ios-timeout.XXXXXX")
+timeout_marker="${timeout_dir}/timed-out"
+trap 'rm -rf "$timeout_dir"' EXIT
 
 run_with_timeout() {
-  local timeout_seconds=$1
-  shift
-  local timed_out_file
-  timed_out_file=$(mktemp -u "${TMPDIR:-/tmp}/test-ios-timeout.XXXXXX")
+  local remaining=$((DEADLINE - SECONDS))
+  if [[ "$remaining" -le 0 ]]; then
+    echo "error: xcodebuild timed out after ${SCRIPT_TIMEOUT_SECONDS}s" >&2
+    : >"$timeout_marker"
+    return 124
+  fi
 
   set +e
   (
@@ -26,10 +35,10 @@ run_with_timeout() {
     "$@" &
     local pid=$!
     (
-      sleep "$timeout_seconds"
+      sleep "$remaining"
       if kill -0 "$pid" 2>/dev/null; then
-        echo "error: xcodebuild timed out after ${timeout_seconds}s" >&2
-        : >"$timed_out_file"
+        echo "error: xcodebuild timed out after ${SCRIPT_TIMEOUT_SECONDS}s" >&2
+        : >"$timeout_marker"
         kill -TERM -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
         sleep 2
         kill -KILL -"$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null
@@ -45,13 +54,18 @@ run_with_timeout() {
   local status=$?
   set -e
 
-  if [[ -f "$timed_out_file" ]]; then
-    rm -f "$timed_out_file"
+  if [[ -f "$timeout_marker" ]]; then
     return 124
   fi
-  rm -f "$timed_out_file"
   return "$status"
 }
 
-run_with_timeout 600 xcodebuild build-for-testing -scheme "$SCHEME" -destination "$DESTINATION"
-run_with_timeout 600 xcodebuild test-without-building -scheme "$SCHEME" -destination "$DESTINATION" "$@"
+run_with_timeout xcodebuild build-for-testing \
+  -scheme "$SCHEME" \
+  -destination "$DESTINATION" \
+  "${XCODEBUILD_ARGS[@]}"
+
+run_with_timeout xcodebuild test-without-building \
+  -scheme "$SCHEME" \
+  -destination "$DESTINATION" \
+  "${XCODEBUILD_ARGS[@]}"
