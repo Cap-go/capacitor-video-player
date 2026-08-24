@@ -62,8 +62,7 @@ run_with_timeout() {
 
 run_with_timeout xcodebuild build-for-testing \
   -scheme "$SCHEME" \
-  -destination "$DESTINATION" \
-  "${XCODEBUILD_ARGS[@]}"
+  -destination "$DESTINATION"
 
 run_with_timeout xcodebuild test-without-building \
   -scheme "$SCHEME" \
