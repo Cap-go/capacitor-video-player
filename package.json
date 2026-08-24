@@ -34,8 +34,8 @@
     "player"
   ],
   "scripts": {
-    "verify": "npm run verify:ios && npm run verify:android && npm run verify:web",
-    "verify:ios": "xcodebuild -scheme CapgoCapacitorVideoPlayer -destination generic/platform=iOS && bun run test:ios",
+    "verify": "npm run verify:ios && npm run test:ios && npm run verify:android && npm run verify:web",
+    "verify:ios": "xcodebuild -scheme CapgoCapacitorVideoPlayer -destination generic/platform=iOS",
     "test:ios": "./scripts/test-ios.sh",
     "verify:android": "cd android && ./gradlew clean build test && cd ..",
     "verify:web": "npm run build",
