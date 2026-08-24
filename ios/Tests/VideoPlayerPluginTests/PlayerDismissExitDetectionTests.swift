@@ -2,35 +2,20 @@ import XCTest
 @testable import VideoPlayerPlugin
 
 final class PlayerDismissExitDetectionTests: XCTestCase {
-    func testReportsExitWhenBeingDismissed() {
+    func testReportsExitWhenModalHierarchyIsGone() {
         XCTAssertTrue(
             PlayerDismissExitDetection.shouldReportExit(
-                isBeingDismissed: true,
-                isMovingFromParent: false,
-                presentingViewController: UIViewController(),
-                viewWindow: UIWindow()
-            )
-        )
-    }
-
-    func testReportsExitWhenMovingFromParent() {
-        XCTAssertTrue(
-            PlayerDismissExitDetection.shouldReportExit(
-                isBeingDismissed: false,
-                isMovingFromParent: true,
-                presentingViewController: UIViewController(),
-                viewWindow: UIWindow()
-            )
-        )
-    }
-
-    func testReportsExitWhenModalHierarchyIsGoneWithoutBeingDismissedFlag() {
-        XCTAssertTrue(
-            PlayerDismissExitDetection.shouldReportExit(
-                isBeingDismissed: false,
-                isMovingFromParent: false,
                 presentingViewController: nil,
                 viewWindow: nil
+            )
+        )
+    }
+
+    func testDoesNotReportExitWhenBeingDismissedButStillInHierarchy() {
+        XCTAssertFalse(
+            PlayerDismissExitDetection.shouldReportExit(
+                presentingViewController: UIViewController(),
+                viewWindow: UIWindow()
             )
         )
     }
@@ -38,8 +23,6 @@ final class PlayerDismissExitDetectionTests: XCTestCase {
     func testDoesNotReportExitWhenCoveredByAnotherViewController() {
         XCTAssertFalse(
             PlayerDismissExitDetection.shouldReportExit(
-                isBeingDismissed: false,
-                isMovingFromParent: false,
                 presentingViewController: UIViewController(),
                 viewWindow: UIWindow()
             )
@@ -49,8 +32,6 @@ final class PlayerDismissExitDetectionTests: XCTestCase {
     func testDoesNotReportExitWhenOnlyPresenterIsNil() {
         XCTAssertFalse(
             PlayerDismissExitDetection.shouldReportExit(
-                isBeingDismissed: false,
-                isMovingFromParent: false,
                 presentingViewController: nil,
                 viewWindow: UIWindow()
             )
@@ -60,8 +41,6 @@ final class PlayerDismissExitDetectionTests: XCTestCase {
     func testDoesNotReportExitWhenOnlyWindowIsNil() {
         XCTAssertFalse(
             PlayerDismissExitDetection.shouldReportExit(
-                isBeingDismissed: false,
-                isMovingFromParent: false,
                 presentingViewController: UIViewController(),
                 viewWindow: nil
             )

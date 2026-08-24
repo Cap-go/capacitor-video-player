@@ -24,16 +24,14 @@ final class DismissObservingPlayerViewController: AVPlayerViewController {
 
     override func dismiss(animated: Bool, completion: (() -> Void)? = nil) {
         super.dismiss(animated: animated) { [weak self] in
-            completion?()
             self?.reportDismissIfNeeded()
+            completion?()
         }
     }
 
     private func reportDismissIfNeeded() {
         guard wasVisibleInHierarchy else { return }
         guard PlayerDismissExitDetection.shouldReportExit(
-            isBeingDismissed: isBeingDismissed,
-            isMovingFromParent: isMovingFromParent,
             presentingViewController: presentingViewController,
             viewWindow: view.window
         ) else {
