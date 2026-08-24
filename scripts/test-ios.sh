@@ -18,7 +18,7 @@ run_with_timeout() {
   local timeout_seconds=$1
   shift
   local timed_out_file
-  timed_out_file=$(mktemp "${TMPDIR:-/tmp}/test-ios-timeout.XXXXXX")
+  timed_out_file=$(mktemp -u "${TMPDIR:-/tmp}/test-ios-timeout.XXXXXX")
 
   set +e
   (
