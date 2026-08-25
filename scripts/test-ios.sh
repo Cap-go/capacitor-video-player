@@ -20,7 +20,7 @@ BUILD_ARGS=()
 TEST_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -only-testing|-skip-testing|-testPlan)
+    -only-testing|-skip-testing|-testPlan|-resultBundlePath)
       TEST_ARGS+=("$1")
       shift
       if [[ $# -gt 0 ]]; then
@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
         shift
       fi
       ;;
-    -only-testing:*|-skip-testing:*|-testPlan=*)
+    -only-testing:*|-skip-testing:*|-testPlan=*|-resultBundlePath=*)
       TEST_ARGS+=("$1")
       shift
       ;;
