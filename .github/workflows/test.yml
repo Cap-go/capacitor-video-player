@@ -68,9 +68,9 @@ jobs:
         run: bun i
       - name: Check plugin wiring
         run: bun run check:wiring
-      - name: Build
+      - name: Build and test iOS
         id: build_code
-        run: bun run verify:ios
+        run: bun run test:ios
       - name: Verify packed package in example app (iOS)
         shell: bash
         run: bash ./.github/scripts/verify-packed-example.sh ios
