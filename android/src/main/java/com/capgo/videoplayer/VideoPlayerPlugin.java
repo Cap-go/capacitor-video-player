@@ -263,7 +263,7 @@ public class VideoPlayerPlugin extends Plugin {
                 if (isPermissionsGranted()) {
                     _initPlayer(call);
                 } else {
-                    this.bridge.saveCall(call);
+                    call.setKeepAlive(true);
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         requestPermissionForAlias(MEDIAVIDEO, call, "permissionsCallback");
                     } else {
