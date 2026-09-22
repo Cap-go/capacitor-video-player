@@ -682,13 +682,11 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
     if (componentTag != null && componentTag.length > 0) {
       const cmpTagEl: HTMLElement | null = document.querySelector(`${componentTag}`);
       if (cmpTagEl === null) return Promise.resolve(null);
-      let container: HTMLDivElement | null = null;
       const shadowRoot = cmpTagEl.shadowRoot ? cmpTagEl.shadowRoot : null;
-      if (shadowRoot != null) {
-        container = shadowRoot.querySelector(`[id='${playerId}']`);
-      } else {
-        container = cmpTagEl.querySelector(`[id='${playerId}']`);
-      }
+      const container =
+        shadowRoot != null
+          ? shadowRoot.querySelector(`[id='${playerId}']`)
+          : cmpTagEl.querySelector(`[id='${playerId}']`);
       if (container != null) container.appendChild(videoContainer);
       return Promise.resolve(videoContainer);
     } else {
