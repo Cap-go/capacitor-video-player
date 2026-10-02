@@ -351,11 +351,11 @@ export interface VideoSubtitle {
  */
 export interface SubTitleOptions {
   /**
-   * Foreground Color in RGBA (default rgba(255,255,255,1)
+   * Foreground Color in RGBA (default rgba(255,255,255,1))
    */
   foregroundColor?: string;
   /**
-   * Background Color in RGBA (default rgba(0,0,0,1)
+   * Background Color in RGBA (default rgba(0,0,0,1))
    */
   backgroundColor?: string;
   /**
