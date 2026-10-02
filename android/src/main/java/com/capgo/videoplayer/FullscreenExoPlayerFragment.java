@@ -670,9 +670,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         }
 
         isInPictureInPictureMode = activity.isInPictureInPictureMode();
-        if (!subtitleUris.isEmpty()) {
-            setSubtitle(true);
-        }
+        applySubtitleAppearance(true);
         play();
         handler.postDelayed(mRunnable, 100);
     }
@@ -710,9 +708,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (inPictureInPictureMode) {
             linearLayout.setVisibility(View.INVISIBLE);
             styledPlayerView.setUseController(false);
-            if (!subtitleUris.isEmpty()) {
-                setSubtitle(true);
-            }
+            applySubtitleAppearance(true);
             return;
         }
 
@@ -720,9 +716,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (showControls) {
             styledPlayerView.setUseController(true);
         }
-        if (!subtitleUris.isEmpty()) {
-            setSubtitle(false);
-        }
+        applySubtitleAppearance(false);
     }
 
     private void checkPIPPermission() {
@@ -859,7 +853,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 }
             }
             if (sturi != null) {
-                setSubtitle(false);
+                applySubtitleAppearance(false);
+                styledPlayerView.setShowSubtitleButton(true);
+            } else {
+                applySubtitleAppearance(false);
             }
         }
     }
@@ -943,7 +940,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
             }
         };
         if (sturi != null) {
-            setSubtitle(false);
+            applySubtitleAppearance(false);
+            styledPlayerView.setShowSubtitleButton(true);
+        } else {
+            applySubtitleAppearance(false);
         }
         //Use Media Session Connector from the EXT library to enable MediaSession Controls in PIP.
         mediaSession = new MediaSessionCompat(context, "capacitorvideoplayer");
@@ -973,10 +973,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
         return false;
     }
 
-    private void setSubtitle(boolean transparent) {
+    private void applySubtitleAppearance(boolean transparentBackground) {
         int foreground;
         int background;
-        if (!transparent) {
+        if (!transparentBackground) {
             foreground = Color.WHITE;
             background = Color.BLACK;
             if (stForeColor.length() > 4 && stForeColor.substring(0, 4).equals("rgba")) {
@@ -995,7 +995,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 new CaptionStyleCompat(foreground, background, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, Color.WHITE, null)
             );
         styledPlayerView.getSubtitleView().setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, stFontSize);
-        styledPlayerView.setShowSubtitleButton(true);
     }
 
     /**
