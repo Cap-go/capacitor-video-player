@@ -94,6 +94,12 @@ export interface VideoPlayerPlugin {
    * Show again a previously hidden player UI (native fullscreen).
    */
   showPlayer(): Promise<capVideoPlayerResult>;
+  /**
+   * Get the native Capacitor plugin version
+   *
+   * @returns Promise resolving to the plugin version string for this build
+   */
+  getPluginVersion(): Promise<{ version: string }>;
 }
 export interface capEchoOptions {
   /**
@@ -355,14 +361,6 @@ export interface SubTitleOptions {
    * Font Size in pixels (default 16)
    */
   fontSize?: number;
-
-  /**
-   * Get the native Capacitor plugin version
-   *
-   * @returns {Promise<{ id: string }>} an Promise with version for this device
-   * @throws An error if the something went wrong
-   */
-  getPluginVersion(): Promise<{ version: string }>;
 }
 export interface FairPlayDrmOptions {
   /**
