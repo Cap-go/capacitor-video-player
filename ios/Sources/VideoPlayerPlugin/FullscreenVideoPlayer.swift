@@ -245,7 +245,7 @@ class FullscreenVideoPlayer: NSObject {
         guard let subtitleStyleOptions else { return }
 
         var attributes: [String: Any] = [:]
-        if let fontSize = subtitleStyleOptions.fontSize {
+        if let fontSize = subtitleStyleOptions.fontSize, fontSize.isFinite, fontSize >= 0 {
             let percent = fontSize / 16.0 * 100.0
             attributes[kCMTextMarkupAttribute_RelativeFontSize as String] = NSNumber(value: percent)
         }

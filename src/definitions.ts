@@ -342,6 +342,13 @@ export interface VideoSubtitle {
    */
   language?: string;
 }
+/**
+ * Optional styling for on-screen subtitles.
+ *
+ * On iOS, colors and font size are applied through `AVPlayerItem` text style
+ * rules. That path applies to WebVTT and other timed text the platform exposes
+ * to those rules; some embedded legible streams may not honor these options.
+ */
 export interface SubTitleOptions {
   /**
    * Foreground Color in RGBA (default rgba(255,255,255,1)
@@ -352,7 +359,9 @@ export interface SubTitleOptions {
    */
   backgroundColor?: string;
   /**
-   * Font Size in pixels (default 16)
+   * Font size in CSS pixels (default 16). Android applies this directly.
+   * On iOS, values map to AVFoundation relative size where 16 equals the
+   * system default (100%).
    */
   fontSize?: number;
 

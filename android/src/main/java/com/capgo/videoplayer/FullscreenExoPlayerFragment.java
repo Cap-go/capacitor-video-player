@@ -398,13 +398,9 @@ public class FullscreenExoPlayerFragment extends Fragment {
             Toast.makeText(context, "Device is a TV ", Toast.LENGTH_SHORT).show();
         }
 
-        stForeColor = subTitleOptions != null && subTitleOptions.has("foregroundColor")
-            ? subTitleOptions.getString("foregroundColor")
-            : "rgba(255,255,255,1)";
-        stBackColor = subTitleOptions != null && subTitleOptions.has("backgroundColor")
-            ? subTitleOptions.getString("backgroundColor")
-            : "rgba(0,0,0,1)";
-        stFontSize = subTitleOptions != null && subTitleOptions.has("fontSize") ? subTitleOptions.getInteger("fontSize") : 16;
+        stForeColor = subTitleOptions != null ? subTitleOptions.optString("foregroundColor", "rgba(255,255,255,1)") : "rgba(255,255,255,1)";
+        stBackColor = subTitleOptions != null ? subTitleOptions.optString("backgroundColor", "rgba(0,0,0,1)") : "rgba(0,0,0,1)";
+        stFontSize = subTitleOptions != null ? (int) Math.round(subTitleOptions.optDouble("fontSize", 16)) : 16;
 
         if (!isInternal) {
             uri = Uri.parse(videoPath);
