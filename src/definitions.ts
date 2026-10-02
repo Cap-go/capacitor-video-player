@@ -176,7 +176,7 @@ export interface capVideoPlayerOptions {
    * iOS audio session category behavior (iOS).
    * - "ambient": respects the iPhone silent switch
    * - "playback": ignores the iPhone silent switch
-   * - "moviePlayback": playback optimized for video and long-form AirPlay
+   * - "moviePlayback": playback optimized for video and long-form AirPlay.
    *
    * When omitted, the plugin resolves the category from other options: `"playback"` if
    * `pipEnabled` or `bkmodeEnabled` is true (both default to true), otherwise `"ambient"`.
