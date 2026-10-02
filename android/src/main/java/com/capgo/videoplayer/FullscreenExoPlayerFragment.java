@@ -398,6 +398,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
             Toast.makeText(context, "Device is a TV ", Toast.LENGTH_SHORT).show();
         }
 
+        stForeColor = subTitleOptions != null ? subTitleOptions.optString("foregroundColor", "rgba(255,255,255,1)") : "rgba(255,255,255,1)";
+        stBackColor = subTitleOptions != null ? subTitleOptions.optString("backgroundColor", "rgba(0,0,0,1)") : "rgba(0,0,0,1)";
+        stFontSize = subTitleOptions != null ? (int) Math.round(subTitleOptions.optDouble("fontSize", 16)) : 16;
+
         if (!isInternal) {
             uri = Uri.parse(videoPath);
             subtitleUris = new ArrayList<>();
@@ -417,13 +421,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 subtitleLanguages.add(language != null ? language : "en");
             }
 
-            stForeColor = subTitleOptions != null && subTitleOptions.has("foregroundColor")
-                ? subTitleOptions.getString("foregroundColor")
-                : "rgba(255,255,255,1)";
-            stBackColor = subTitleOptions != null && subTitleOptions.has("backgroundColor")
-                ? subTitleOptions.getString("backgroundColor")
-                : "rgba(0,0,0,1)";
-            stFontSize = subTitleOptions != null && subTitleOptions.has("fontSize") ? subTitleOptions.getInteger("fontSize") : 16;
             // get video type
             vType = getVideoType(uri);
             Log.v(TAG, "display url: " + uri);
@@ -670,9 +667,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         }
 
         isInPictureInPictureMode = activity.isInPictureInPictureMode();
-        if (!subtitleUris.isEmpty()) {
-            setSubtitle(true);
-        }
+        applySubtitleAppearance(true);
         play();
         handler.postDelayed(mRunnable, 100);
     }
@@ -710,9 +705,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (inPictureInPictureMode) {
             linearLayout.setVisibility(View.INVISIBLE);
             styledPlayerView.setUseController(false);
-            if (!subtitleUris.isEmpty()) {
-                setSubtitle(true);
-            }
+            applySubtitleAppearance(true);
             return;
         }
 
@@ -720,9 +713,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (showControls) {
             styledPlayerView.setUseController(true);
         }
-        if (!subtitleUris.isEmpty()) {
-            setSubtitle(false);
-        }
+        applySubtitleAppearance(false);
     }
 
     private void checkPIPPermission() {
@@ -859,7 +850,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 }
             }
             if (sturi != null) {
-                setSubtitle(false);
+                applySubtitleAppearance(false);
+                styledPlayerView.setShowSubtitleButton(true);
+            } else {
+                applySubtitleAppearance(false);
             }
         }
     }
@@ -943,7 +937,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
             }
         };
         if (sturi != null) {
-            setSubtitle(false);
+            applySubtitleAppearance(false);
+            styledPlayerView.setShowSubtitleButton(true);
+        } else {
+            applySubtitleAppearance(false);
         }
         //Use Media Session Connector from the EXT library to enable MediaSession Controls in PIP.
         mediaSession = new MediaSessionCompat(context, "capacitorvideoplayer");
@@ -973,10 +970,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
         return false;
     }
 
-    private void setSubtitle(boolean transparent) {
+    private void applySubtitleAppearance(boolean transparentBackground) {
         int foreground;
         int background;
-        if (!transparent) {
+        if (!transparentBackground) {
             foreground = Color.WHITE;
             background = Color.BLACK;
             if (stForeColor.length() > 4 && stForeColor.substring(0, 4).equals("rgba")) {
@@ -995,7 +992,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 new CaptionStyleCompat(foreground, background, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, Color.WHITE, null)
             );
         styledPlayerView.getSubtitleView().setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, stFontSize);
-        styledPlayerView.setShowSubtitleButton(true);
     }
 
     /**
