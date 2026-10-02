@@ -31,7 +31,7 @@ struct VideoChapter {
             endTime = value
         }
 
-        if let endTime, endTime <= startTime {
+        if let endTimeValue = endTime, endTimeValue <= startTime {
             endTime = nil
         }
 

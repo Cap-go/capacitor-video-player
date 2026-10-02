@@ -1253,11 +1253,9 @@ public class VideoPlayerPlugin extends Plugin {
                 return parsed;
             }
             for (int i = 0; i < chapterArray.length(); i++) {
-                JSONObject entry;
-                try {
-                    entry = chapterArray.getJSONObject(i);
-                } catch (JSONException e) {
-                    Log.w(TAG, "Skipping malformed chapter entry at index " + i, e);
+                JSONObject entry = chapterArray.optJSONObject(i);
+                if (entry == null) {
+                    Log.w(TAG, "Skipping malformed chapter entry at index " + i);
                     continue;
                 }
                 String chapterTitle = entry.optString("title", "");
