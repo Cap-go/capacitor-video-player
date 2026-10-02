@@ -398,6 +398,14 @@ public class FullscreenExoPlayerFragment extends Fragment {
             Toast.makeText(context, "Device is a TV ", Toast.LENGTH_SHORT).show();
         }
 
+        stForeColor = subTitleOptions != null && subTitleOptions.has("foregroundColor")
+            ? subTitleOptions.getString("foregroundColor")
+            : "rgba(255,255,255,1)";
+        stBackColor = subTitleOptions != null && subTitleOptions.has("backgroundColor")
+            ? subTitleOptions.getString("backgroundColor")
+            : "rgba(0,0,0,1)";
+        stFontSize = subTitleOptions != null && subTitleOptions.has("fontSize") ? subTitleOptions.getInteger("fontSize") : 16;
+
         if (!isInternal) {
             uri = Uri.parse(videoPath);
             subtitleUris = new ArrayList<>();
@@ -417,13 +425,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 subtitleLanguages.add(language != null ? language : "en");
             }
 
-            stForeColor = subTitleOptions != null && subTitleOptions.has("foregroundColor")
-                ? subTitleOptions.getString("foregroundColor")
-                : "rgba(255,255,255,1)";
-            stBackColor = subTitleOptions != null && subTitleOptions.has("backgroundColor")
-                ? subTitleOptions.getString("backgroundColor")
-                : "rgba(0,0,0,1)";
-            stFontSize = subTitleOptions != null && subTitleOptions.has("fontSize") ? subTitleOptions.getInteger("fontSize") : 16;
             // get video type
             vType = getVideoType(uri);
             Log.v(TAG, "display url: " + uri);

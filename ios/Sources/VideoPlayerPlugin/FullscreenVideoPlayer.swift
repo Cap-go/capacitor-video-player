@@ -274,18 +274,22 @@ class FullscreenVideoPlayer: NSObject {
         let inner = trimmed.dropFirst(5).dropLast()
         let parts = inner.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         guard parts.count == 4,
-              let red = Double(parts[0]),
-              let green = Double(parts[1]),
-              let blue = Double(parts[2]),
-              let alpha = Double(parts[3]) else {
+              let red = Double(parts[0]), red.isFinite,
+              let green = Double(parts[1]), green.isFinite,
+              let blue = Double(parts[2]), blue.isFinite,
+              let alpha = Double(parts[3]), alpha.isFinite,
+              (0...255).contains(red),
+              (0...255).contains(green),
+              (0...255).contains(blue),
+              (0...1).contains(alpha) else {
             return nil
         }
 
         return [
-            NSNumber(value: Int(red.rounded())),
-            NSNumber(value: Int(green.rounded())),
-            NSNumber(value: Int(blue.rounded())),
-            NSNumber(value: Int((alpha * 255.0).rounded()))
+            NSNumber(value: alpha),
+            NSNumber(value: red / 255.0),
+            NSNumber(value: green / 255.0),
+            NSNumber(value: blue / 255.0)
         ]
     }
 
