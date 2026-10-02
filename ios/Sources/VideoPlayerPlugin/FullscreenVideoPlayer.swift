@@ -13,6 +13,7 @@ class FullscreenVideoPlayer: NSObject {
     private var exitOnEnd: Bool
     private var loopOnEnd: Bool
     private var pipEnabled: Bool
+    private var bkmodeEnabled: Bool
     private var showControls: Bool
     private var chromecast: Bool
     private var chromecastUrl: String?
@@ -54,6 +55,7 @@ class FullscreenVideoPlayer: NSObject {
         exitOnEnd: Bool,
         loopOnEnd: Bool,
         pipEnabled: Bool,
+        bkmodeEnabled: Bool = true,
         showControls: Bool,
         chromecast: Bool,
         chromecastUrl: String? = nil,
@@ -73,6 +75,7 @@ class FullscreenVideoPlayer: NSObject {
         self.exitOnEnd = exitOnEnd
         self.loopOnEnd = loopOnEnd
         self.pipEnabled = pipEnabled
+        self.bkmodeEnabled = bkmodeEnabled
         self.showControls = showControls
         self.chromecast = chromecast
         self.chromecastUrl = chromecastUrl
@@ -780,11 +783,11 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func configureAudioSession() {
-        guard let audioCategory else { return }
+        let resolvedCategory = resolvedAudioCategory()
 
         let session = AVAudioSession.sharedInstance()
         do {
-            switch audioCategory {
+            switch resolvedCategory {
             case "ambient":
                 try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
             case "playback":
@@ -801,7 +804,7 @@ class FullscreenVideoPlayer: NSObject {
                     try session.setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
                 }
             default:
-                return
+                try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
             }
 
             try session.setActive(true)
@@ -809,6 +812,17 @@ class FullscreenVideoPlayer: NSObject {
         } catch {
             print("Error configuring AVAudioSession: \(error)")
         }
+    }
+
+    private func resolvedAudioCategory() -> String {
+        if let audioCategory,
+           !audioCategory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return audioCategory
+        }
+        if bkmodeEnabled || pipEnabled {
+            return "playback"
+        }
+        return "ambient"
     }
 
     private func deactivateAudioSessionIfNeeded() {

@@ -131,6 +131,22 @@ Picture in Picture on Android requires your app activity to declare PiP support 
 
 `launchMode="singleTask"` and the `configChanges` flags prevent the player activity from being recreated when entering or leaving PiP.
 
+## iOS Picture in Picture and background audio
+
+On iOS the native player configures `AVAudioSession` for PiP and background playback when `pipEnabled` or `bkmodeEnabled` is true (both default to true). Your app still needs the right plist and capability entries:
+
+1. In Xcode, add the **Background Modes** capability and enable **Audio, AirPlay, and Picture in Picture**.
+2. In `ios/App/App/Info.plist`, include the audio background mode:
+
+```xml
+<key>UIBackgroundModes</key>
+<array>
+  <string>audio</string>
+</array>
+```
+
+Test PiP on a physical iPhone (the Simulator does not support Picture in Picture). To respect the silent switch while keeping other defaults, set `audioCategory: 'ambient'` explicitly.
+
 ## API
 
 <docgen-index>
