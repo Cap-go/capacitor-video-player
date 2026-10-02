@@ -40,6 +40,8 @@ class FullscreenVideoPlayer: NSObject {
     private var castController: VideoPlayerCastController?
     private weak var presentingViewController: UIViewController?
     private var subtitleTracks: [VideoSubtitleTrack] = []
+    private var chapters: [VideoChapter] = []
+    private var chapterButton: UIButton?
     private var hlsResourceLoader: HLSSubtitleResourceLoader?
     private var subtitleButton: UIButton?
     private var subtitleSelectionObserver: NSObjectProtocol?
@@ -61,6 +63,7 @@ class FullscreenVideoPlayer: NSObject {
         smallTitle: String? = nil,
         artwork: String? = nil,
         subtitleTracks: [VideoSubtitleTrack] = [],
+        chapters: [VideoChapter] = [],
         fairplayCertificateUrl: String? = nil,
         fairplayContentKeySpcUrl: String? = nil,
         fairplayAssetId: String? = nil,
@@ -80,6 +83,7 @@ class FullscreenVideoPlayer: NSObject {
         self.smallTitle = smallTitle
         self.artwork = artwork
         self.subtitleTracks = subtitleTracks
+        self.chapters = chapters
         self.fairplayCertificateUrl = fairplayCertificateUrl
         self.fairplayContentKeySpcUrl = fairplayContentKeySpcUrl
         self.fairplayAssetId = fairplayAssetId
@@ -268,6 +272,116 @@ class FullscreenVideoPlayer: NSObject {
 
     private func shouldShowNonHlsSubtitleButton() -> Bool {
         return nonHlsSubtitleModeEnabled && validNonHlsSubtitleTracks.count > 1 && shouldShowCustomSubtitleButton()
+    }
+
+    private func shouldShowChapterButton() -> Bool {
+        return showControls && !chapters.isEmpty
+    }
+
+    private func refreshChapterButton() {
+        DispatchQueue.main.async { [weak self] in
+            self?.installOrUpdateChapterButtonIfNeeded()
+        }
+    }
+
+    private func installOrUpdateChapterButtonIfNeeded() {
+        guard shouldShowChapterButton(),
+              let playerVC = playerViewController else {
+            chapterButton?.removeFromSuperview()
+            chapterButton = nil
+            return
+        }
+
+        if chapterButton == nil {
+            guard let overlayView = playerVC.contentOverlayView else {
+                return
+            }
+            let button = UIButton(type: .system)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            if #available(iOS 13.0, *) {
+                button.setImage(UIImage(systemName: "list.bullet"), for: .normal)
+            } else {
+                button.setTitle("Ch", for: .normal)
+            }
+            button.tintColor = .white
+            button.backgroundColor = UIColor.black.withAlphaComponent(0.45)
+            button.layer.cornerRadius = 22
+            button.clipsToBounds = true
+            if #available(iOS 14.0, *) {
+                button.showsMenuAsPrimaryAction = true
+            } else {
+                button.addTarget(self, action: #selector(showChapterActionSheet), for: .touchUpInside)
+            }
+            overlayView.addSubview(button)
+            NSLayoutConstraint.activate([
+                button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 60),
+                button.trailingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+                button.widthAnchor.constraint(equalToConstant: 44),
+                button.heightAnchor.constraint(equalToConstant: 44)
+            ])
+            chapterButton = button
+        }
+
+        if #available(iOS 14.0, *) {
+            chapterButton?.menu = buildChapterMenu()
+        }
+        chapterButton?.accessibilityLabel = "Chapters"
+    }
+
+    @available(iOS 14.0, *)
+    private func buildChapterMenu() -> UIMenu {
+        let actions = chapters.map { chapter in
+            UIAction(title: Self.chapterDisplayName(chapter)) { [weak self] _ in
+                self?.seekToChapter(chapter)
+            }
+        }
+        return UIMenu(title: "Chapters", children: actions)
+    }
+
+    @objc
+    private func showChapterActionSheet() {
+        guard let playerVC = playerViewController, !chapters.isEmpty else {
+            return
+        }
+
+        let sheet = UIAlertController(title: "Chapters", message: nil, preferredStyle: .actionSheet)
+        for chapter in chapters {
+            sheet.addAction(UIAlertAction(title: Self.chapterDisplayName(chapter), style: .default) { [weak self] _ in
+                self?.seekToChapter(chapter)
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = sheet.popoverPresentationController,
+           let chapterButton {
+            popover.sourceView = chapterButton
+            popover.sourceRect = chapterButton.bounds
+        }
+        playerVC.present(sheet, animated: true)
+    }
+
+    private func seekToChapter(_ chapter: VideoChapter) {
+        setCurrentTime(chapter.startTime)
+        play()
+    }
+
+    private static func chapterDisplayName(_ chapter: VideoChapter) -> String {
+        let timeLabel = formatChapterTime(chapter.startTime)
+        let title = chapter.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if title.isEmpty {
+            return timeLabel
+        }
+        return "\(title) (\(timeLabel))"
+    }
+
+    private static func formatChapterTime(_ seconds: TimeInterval) -> String {
+        let totalSeconds = max(0, Int(seconds.rounded()))
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        }
+        return String(format: "%d:%02d", minutes, secs)
     }
 
     private func refreshSubtitleButton() {
@@ -663,6 +777,7 @@ class FullscreenVideoPlayer: NSObject {
             if let item = object as? AVPlayerItem {
                 if item.status == .readyToPlay {
                     refreshSubtitleButton()
+                    refreshChapterButton()
                     emitReadyIfNeeded()
                 }
             }
@@ -706,6 +821,7 @@ class FullscreenVideoPlayer: NSObject {
         presentingViewController = viewController
         viewController.present(playerVC, animated: true) {
             self.refreshSubtitleButton()
+            self.refreshChapterButton()
             self.castController?.installOverlayIfNeeded()
             self.play()
             completion()
@@ -762,6 +878,8 @@ class FullscreenVideoPlayer: NSObject {
         }
         subtitleButton?.removeFromSuperview()
         subtitleButton = nil
+        chapterButton?.removeFromSuperview()
+        chapterButton = nil
         contentKeySession?.setDelegate(nil, queue: nil)
         contentKeySession = nil
         hlsResourceLoader = nil
