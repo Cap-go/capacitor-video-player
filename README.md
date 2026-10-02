@@ -154,6 +154,7 @@ Picture in Picture on Android requires your app activity to declare PiP support 
 * [`exitPlayer()`](#exitplayer)
 * [`hidePlayer()`](#hideplayer)
 * [`showPlayer()`](#showplayer)
+* [`getPluginVersion()`](#getpluginversion)
 * [Interfaces](#interfaces)
 
 </docgen-index>
@@ -462,6 +463,19 @@ Show again a previously hidden player UI (native fullscreen).
 --------------------
 
 
+### getPluginVersion()
+
+```typescript
+getPluginVersion() => Promise<{ version: string; }>
+```
+
+Get the native Capacitor plugin version
+
+**Returns:** <code>Promise&lt;{ version: string; }&gt;</code>
+
+--------------------
+
+
 ### Interfaces
 
 
@@ -522,10 +536,6 @@ Show again a previously hidden player UI (native fullscreen).
 | **`foregroundColor`** | <code>string</code> | Foreground Color in RGBA (default rgba(255,255,255,1) |
 | **`backgroundColor`** | <code>string</code> | Background Color in RGBA (default rgba(0,0,0,1)       |
 | **`fontSize`**        | <code>number</code> | Font Size in pixels (default 16)                      |
-
-| Method               | Signature                                    | Description                             |
-| -------------------- | -------------------------------------------- | --------------------------------------- |
-| **getPluginVersion** | () =&gt; Promise&lt;{ version: string; }&gt; | Get the native Capacitor plugin version |
 
 
 #### DrmOptions
