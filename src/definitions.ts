@@ -357,7 +357,7 @@ export interface VideoChapter {
    */
   startTime: number;
   /**
-   * End time in seconds (optional). When omitted, the chapter runs until the next chapter or the end of the video.
+   * End time in seconds (optional). Stored for future timeline markers; chapter jumps use `startTime` only in this release.
    */
   endTime?: number;
 }

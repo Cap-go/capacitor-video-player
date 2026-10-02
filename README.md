@@ -518,11 +518,11 @@ Show again a previously hidden player UI (native fullscreen).
 
 #### VideoChapter
 
-| Prop            | Type                | Description                                                                                                    |
-| --------------- | ------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **`title`**     | <code>string</code> | Chapter title shown in the chapter list                                                                        |
-| **`startTime`** | <code>number</code> | Start time in seconds                                                                                          |
-| **`endTime`**   | <code>number</code> | End time in seconds (optional). When omitted, the chapter runs until the next chapter or the end of the video. |
+| Prop            | Type                | Description                                                                                                             |
+| --------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **`title`**     | <code>string</code> | Chapter title shown in the chapter list                                                                                 |
+| **`startTime`** | <code>number</code> | Start time in seconds                                                                                                   |
+| **`endTime`**   | <code>number</code> | End time in seconds (optional). Stored for future timeline markers; chapter jumps use `startTime` only in this release. |
 
 
 #### SubTitleOptions

@@ -32,7 +32,7 @@ struct VideoChapter {
         }
 
         if let endTime, endTime <= startTime {
-            return nil
+            endTime = nil
         }
 
         self.title = title

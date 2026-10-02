@@ -143,7 +143,15 @@ extension VideoPlayerPlugin {
         guard let entries = call.getArray("chapters", [String: Any].self) else {
             return []
         }
-        return entries.compactMap { VideoChapter(dictionary: $0) }.sorted { $0.startTime < $1.startTime }
+        var parsed: [VideoChapter] = []
+        for (index, entry) in entries.enumerated() {
+            if let chapter = VideoChapter(dictionary: entry) {
+                parsed.append(chapter)
+            } else {
+                print("VideoPlayerPlugin: skipping invalid chapter at index \(index)")
+            }
+        }
+        return parsed.sorted { $0.startTime < $1.startTime }
     }
 
     private static func parseSubtitleTracks(from call: CAPPluginCall) -> [VideoSubtitleTrack] {
