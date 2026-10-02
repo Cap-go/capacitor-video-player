@@ -90,6 +90,7 @@ public class VideoPlayerPlugin extends Plugin {
     private String subtitle = "";
     private String language = "";
     private List<VideoSubtitleTrack> subtitleTracks = new ArrayList<>();
+    private List<VideoChapter> chapters = new ArrayList<>();
     private JSObject subTitleOptions;
     private JSObject drmOptions;
     private final JSObject ret = new JSObject();
@@ -208,6 +209,7 @@ public class VideoPlayerPlugin extends Plugin {
                 language = call.getString("language");
             }
             subtitleTracks = parseSubtitleTracks(call);
+            chapters = parseChapters(call);
             subTitleOptions = new JSObject();
             if (call.getData().has("subtitleOptions")) {
                 subTitleOptions = call.getObject("subtitleOptions");
@@ -1018,6 +1020,7 @@ public class VideoPlayerPlugin extends Plugin {
                     showControls,
                     displayMode,
                     resolvedSubtitleTracks,
+                    chapters,
                     subTitleOptions,
                     headers,
                     title,
@@ -1184,7 +1187,8 @@ public class VideoPlayerPlugin extends Plugin {
                             showControls,
                             displayMode,
                             new ArrayList<>(),
-                            null,
+                            chapters,
+                            subTitleOptions,
                             headers,
                             title,
                             smallTitle,
@@ -1238,6 +1242,42 @@ public class VideoPlayerPlugin extends Plugin {
         return tracks;
     }
 
+    private List<VideoChapter> parseChapters(PluginCall call) {
+        List<VideoChapter> parsed = new ArrayList<>();
+        if (!call.getData().has("chapters")) {
+            return parsed;
+        }
+        JSArray chapterArray = call.getArray("chapters");
+        if (chapterArray == null) {
+            return parsed;
+        }
+        for (int i = 0; i < chapterArray.length(); i++) {
+            JSONObject entry = chapterArray.optJSONObject(i);
+            if (entry == null) {
+                Log.w(TAG, "Skipping malformed chapter entry at index " + i);
+                continue;
+            }
+            String chapterTitle = entry.optString("title", "");
+            if (chapterTitle == null || chapterTitle.trim().isEmpty()) {
+                continue;
+            }
+            if (!entry.has("startTime")) {
+                continue;
+            }
+            double startTime = entry.optDouble("startTime", -1);
+            if (startTime < 0) {
+                continue;
+            }
+            Double endTime = entry.has("endTime") ? entry.optDouble("endTime", -1) : null;
+            if (endTime != null && endTime <= startTime) {
+                endTime = null;
+            }
+            parsed.add(new VideoChapter(chapterTitle.trim(), startTime, endTime));
+        }
+        parsed.sort((left, right) -> Double.compare(left.startTimeSeconds, right.startTimeSeconds));
+        return parsed;
+    }
+
     private List<VideoSubtitleTrack> resolveSubtitleTracks(List<VideoSubtitleTrack> tracks) {
         List<VideoSubtitleTrack> resolved = new ArrayList<>();
         if (tracks == null) {
@@ -1267,6 +1307,7 @@ public class VideoPlayerPlugin extends Plugin {
         Boolean showControls,
         String displayMode,
         List<VideoSubtitleTrack> subtitleTracks,
+        List<VideoChapter> chapters,
         JSObject subTitleOptions,
         JSObject headers,
         String title,
@@ -1293,6 +1334,7 @@ public class VideoPlayerPlugin extends Plugin {
             showControls,
             displayMode,
             subtitleTracks,
+            chapters,
             subTitleOptions,
             headers,
             title,

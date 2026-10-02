@@ -3,6 +3,7 @@ package com.capgo.videoplayer;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.app.PictureInPictureParams;
 import android.content.ContentUris;
 import android.content.Context;
@@ -83,6 +84,7 @@ import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
 import com.google.android.exoplayer2.util.MimeTypes;
+import com.google.android.exoplayer2.util.Util;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaTrack;
@@ -99,6 +101,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Formatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -115,6 +118,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     public Float videoRate;
     public String playerId;
     public List<VideoSubtitleTrack> subtitleTracks;
+    public List<VideoChapter> chapters = new ArrayList<>();
     public String subTitle;
     public String language;
     public JSObject subTitleOptions;
@@ -160,6 +164,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private ProgressBar Pbar;
     private View view;
     private ImageButton closeBtn;
+    private ImageButton chaptersBtn;
     private ImageButton pipBtn;
     private ImageButton resizeBtn;
     private ConstraintLayout constLayout;
@@ -282,6 +287,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         }
 
         closeBtn = view.findViewById(R.id.exo_close);
+        chaptersBtn = view.findViewById(R.id.exo_chapters);
         pipBtn = view.findViewById(R.id.exo_pip);
         styledPlayerView.requestFocus();
         linearLayout.setVisibility(View.INVISIBLE);
@@ -328,6 +334,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                         linearLayout.setVisibility(View.INVISIBLE);
                         Log.v(TAG, "**** in ExoPlayer.STATE_READY firstReadyToPlay " + firstReadyToPlay);
                         updateSubtitleButtonVisibility(player.getCurrentTracks());
+                        updateChaptersButtonVisibility();
 
                         if (firstReadyToPlay) {
                             firstReadyToPlay = false;
@@ -357,6 +364,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                                 if (pipEnabled) {
                                     pipBtn.setVisibility(View.VISIBLE);
                                 }
+                                updateChaptersButtonVisibility();
                             } else {
                                 Log.v(TAG, "**** in ExoPlayer.STATE_READY going to notify playerItemPause ");
                                 NotificationCenter.defaultCenter().postNotification("playerItemPause", info);
@@ -491,6 +499,14 @@ public class FullscreenExoPlayerFragment extends Fragment {
                                 @Override
                                 public void onClick(View view) {
                                     playerExit();
+                                }
+                            }
+                        );
+                        chaptersBtn.setOnClickListener(
+                            new View.OnClickListener() {
+                                @Override
+                                public void onClick(View view) {
+                                    showChapterPicker();
                                 }
                             }
                         );
@@ -952,6 +968,51 @@ public class FullscreenExoPlayerFragment extends Fragment {
         mediaSession.setActive(true);
 
         NotificationCenter.defaultCenter().postNotification("initializePlayer", info);
+    }
+
+    private void updateChaptersButtonVisibility() {
+        if (chaptersBtn == null) {
+            return;
+        }
+        boolean visible = chapters != null && !chapters.isEmpty() && playerReady && showControls;
+        chaptersBtn.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
+    private void showChapterPicker() {
+        if (chapters == null || chapters.isEmpty() || player == null) {
+            return;
+        }
+
+        CharSequence[] labels = new CharSequence[chapters.size()];
+        for (int i = 0; i < chapters.size(); i++) {
+            labels[i] = formatChapterLabel(chapters.get(i));
+        }
+
+        new AlertDialog.Builder(context)
+            .setTitle("Chapters")
+            .setItems(labels, (dialog, which) -> seekToChapter(chapters.get(which)))
+            .show();
+    }
+
+    private String formatChapterLabel(VideoChapter chapter) {
+        long startMs = (long) (chapter.startTimeSeconds * 1000.0);
+        StringBuilder builder = new StringBuilder();
+        Formatter formatter = new Formatter(builder, Locale.getDefault());
+        String timeLabel = Util.getStringForTime(builder, formatter, startMs);
+        formatter.close();
+        if (chapter.title.isEmpty()) {
+            return timeLabel;
+        }
+        return chapter.title + " (" + timeLabel + ")";
+    }
+
+    private void seekToChapter(VideoChapter chapter) {
+        if (player == null || chapter == null) {
+            return;
+        }
+        long targetMs = (long) (chapter.startTimeSeconds * 1000.0);
+        player.seekTo(targetMs);
+        play();
     }
 
     private void updateSubtitleButtonVisibility(Tracks tracks) {
