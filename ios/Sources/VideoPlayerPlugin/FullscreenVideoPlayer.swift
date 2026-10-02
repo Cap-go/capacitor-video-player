@@ -275,7 +275,11 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func shouldShowChapterButton() -> Bool {
-        return showControls && !chapters.isEmpty && playerItem?.status == .readyToPlay
+        guard showControls && !chapters.isEmpty else { return false }
+        if castController?.isCasting == true {
+            return true
+        }
+        return playerItem?.status == .readyToPlay
     }
 
     private func refreshChapterButton() {
