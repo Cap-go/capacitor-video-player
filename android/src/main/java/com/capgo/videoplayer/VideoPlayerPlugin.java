@@ -1247,36 +1247,32 @@ public class VideoPlayerPlugin extends Plugin {
         if (!call.getData().has("chapters")) {
             return parsed;
         }
-        try {
-            JSArray chapterArray = call.getArray("chapters");
-            if (chapterArray == null) {
-                return parsed;
+        JSArray chapterArray = call.getArray("chapters");
+        if (chapterArray == null) {
+            return parsed;
+        }
+        for (int i = 0; i < chapterArray.length(); i++) {
+            JSONObject entry = chapterArray.optJSONObject(i);
+            if (entry == null) {
+                Log.w(TAG, "Skipping malformed chapter entry at index " + i);
+                continue;
             }
-            for (int i = 0; i < chapterArray.length(); i++) {
-                JSONObject entry = chapterArray.optJSONObject(i);
-                if (entry == null) {
-                    Log.w(TAG, "Skipping malformed chapter entry at index " + i);
-                    continue;
-                }
-                String chapterTitle = entry.optString("title", "");
-                if (chapterTitle == null || chapterTitle.trim().isEmpty()) {
-                    continue;
-                }
-                if (!entry.has("startTime")) {
-                    continue;
-                }
-                double startTime = entry.optDouble("startTime", -1);
-                if (startTime < 0) {
-                    continue;
-                }
-                Double endTime = entry.has("endTime") ? entry.optDouble("endTime", -1) : null;
-                if (endTime != null && endTime <= startTime) {
-                    endTime = null;
-                }
-                parsed.add(new VideoChapter(chapterTitle.trim(), startTime, endTime));
+            String chapterTitle = entry.optString("title", "");
+            if (chapterTitle == null || chapterTitle.trim().isEmpty()) {
+                continue;
             }
-        } catch (JSONException e) {
-            Log.w(TAG, "Failed to parse chapters array", e);
+            if (!entry.has("startTime")) {
+                continue;
+            }
+            double startTime = entry.optDouble("startTime", -1);
+            if (startTime < 0) {
+                continue;
+            }
+            Double endTime = entry.has("endTime") ? entry.optDouble("endTime", -1) : null;
+            if (endTime != null && endTime <= startTime) {
+                endTime = null;
+            }
+            parsed.add(new VideoChapter(chapterTitle.trim(), startTime, endTime));
         }
         parsed.sort((left, right) -> Double.compare(left.startTimeSeconds, right.startTimeSeconds));
         return parsed;
