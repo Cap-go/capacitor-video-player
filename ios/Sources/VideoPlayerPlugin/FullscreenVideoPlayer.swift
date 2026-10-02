@@ -815,9 +815,11 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func resolvedAudioCategory() -> String {
-        if let audioCategory,
-           !audioCategory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return audioCategory
+        if let audioCategory {
+            let trimmed = audioCategory.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
         }
         if bkmodeEnabled || pipEnabled {
             return "playback"
