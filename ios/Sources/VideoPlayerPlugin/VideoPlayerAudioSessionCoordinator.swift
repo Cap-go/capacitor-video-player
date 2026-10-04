@@ -44,12 +44,14 @@ enum VideoPlayerAudioSessionCoordinator {
         defer { lock.unlock() }
 
         let wasEmpty = activeRegistrations.isEmpty
-        activeRegistrations[registrationId] = needs
-        try applyCategory(for: activeRegistrations.values)
+        var stagedRegistrations = activeRegistrations
+        stagedRegistrations[registrationId] = needs
 
+        try applyCategory(for: stagedRegistrations.values)
         if wasEmpty {
             try AVAudioSession.sharedInstance().setActive(true)
         }
+        activeRegistrations = stagedRegistrations
     }
 
     static func release(registrationId: UUID) {
