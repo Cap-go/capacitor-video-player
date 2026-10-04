@@ -3,6 +3,34 @@ import AVKit
 import AVFoundation
 import UIKit
 
+private enum VideoPlayerAudioSessionCoordinator {
+    private static let lock = NSLock()
+    private static var activePlayerCount = 0
+
+    static func acquire() throws {
+        lock.lock()
+        defer { lock.unlock() }
+        if activePlayerCount == 0 {
+            try AVAudioSession.sharedInstance().setActive(true)
+        }
+        activePlayerCount += 1
+    }
+
+    static func release() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard activePlayerCount > 0 else { return }
+        activePlayerCount -= 1
+        if activePlayerCount == 0 {
+            do {
+                try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+            } catch {
+                print("Error deactivating AVAudioSession: \(error)")
+            }
+        }
+    }
+}
+
 // swiftlint:disable:next type_body_length
 class FullscreenVideoPlayer: NSObject {
     private var player: AVPlayer?
@@ -22,7 +50,7 @@ class FullscreenVideoPlayer: NSObject {
     private var artwork: String?
     private var rate: Float
     private var audioCategory: String?
-    private var didActivateAudioSession: Bool = false
+    private var holdsSharedAudioSession = false
     private var didEmitReady: Bool = false
     private var exitEmission = ExitEmissionGuard()
     private var isTransitioningToPictureInPicture = false
@@ -807,9 +835,10 @@ class FullscreenVideoPlayer: NSObject {
                 try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
             }
 
-            try session.setActive(true)
-            didActivateAudioSession = true
+            try VideoPlayerAudioSessionCoordinator.acquire()
+            holdsSharedAudioSession = true
         } catch {
+            holdsSharedAudioSession = false
             print("Error configuring AVAudioSession: \(error)")
         }
     }
@@ -828,13 +857,9 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func deactivateAudioSessionIfNeeded() {
-        guard didActivateAudioSession else { return }
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
-            didActivateAudioSession = false
-        } catch {
-            print("Error deactivating AVAudioSession: \(error)")
-        }
+        guard holdsSharedAudioSession else { return }
+        VideoPlayerAudioSessionCoordinator.release()
+        holdsSharedAudioSession = false
     }
 
     private func configurePresentationDelegate(for playerVC: UIViewController) {
