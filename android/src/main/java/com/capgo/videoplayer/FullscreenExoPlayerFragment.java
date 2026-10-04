@@ -401,11 +401,12 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
         stForeColor = subTitleOptions != null ? subTitleOptions.optString("foregroundColor", "rgba(255,255,255,1)") : "rgba(255,255,255,1)";
         stBackColor = subTitleOptions != null ? subTitleOptions.optString("backgroundColor", "rgba(0,0,0,1)") : "rgba(0,0,0,1)";
-        if (subTitleOptions != null) {
+        stFontSize = 16;
+        if (subTitleOptions != null && subTitleOptions.has("fontSize")) {
             int fontSizeCandidate = (int) Math.round(subTitleOptions.optDouble("fontSize", 16));
-            stFontSize = fontSizeCandidate > 0 ? fontSizeCandidate : 16;
-        } else {
-            stFontSize = 16;
+            if (fontSizeCandidate > 0) {
+                stFontSize = fontSizeCandidate;
+            }
         }
 
         if (!isInternal) {
@@ -976,6 +977,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
         return false;
     }
 
+    private boolean hasSubtitleOptionOverrides() {
+        return subTitleOptions != null && subTitleOptions.length() > 0;
+    }
+
     private void applySubtitleAppearance(boolean transparentBackground) {
         int foreground;
         int background;
@@ -993,7 +998,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
             background = Color.TRANSPARENT;
         }
         SubtitleView subtitleView = styledPlayerView.getSubtitleView();
-        if (subTitleOptions != null) {
+        if (hasSubtitleOptionOverrides()) {
             subtitleView.setApplyEmbeddedStyles(false);
             subtitleView.setApplyEmbeddedFontSizes(false);
         }
