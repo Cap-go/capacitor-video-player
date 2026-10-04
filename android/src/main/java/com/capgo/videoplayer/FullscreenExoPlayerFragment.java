@@ -78,6 +78,7 @@ import com.google.android.exoplayer2.ui.CaptionStyleCompat;
 import com.google.android.exoplayer2.ui.DefaultTimeBar;
 import com.google.android.exoplayer2.ui.PlayerControlView;
 import com.google.android.exoplayer2.ui.StyledPlayerView;
+import com.google.android.exoplayer2.ui.SubtitleView;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
@@ -400,7 +401,12 @@ public class FullscreenExoPlayerFragment extends Fragment {
 
         stForeColor = subTitleOptions != null ? subTitleOptions.optString("foregroundColor", "rgba(255,255,255,1)") : "rgba(255,255,255,1)";
         stBackColor = subTitleOptions != null ? subTitleOptions.optString("backgroundColor", "rgba(0,0,0,1)") : "rgba(0,0,0,1)";
-        stFontSize = subTitleOptions != null ? (int) Math.round(subTitleOptions.optDouble("fontSize", 16)) : 16;
+        if (subTitleOptions != null) {
+            int fontSizeCandidate = (int) Math.round(subTitleOptions.optDouble("fontSize", 16));
+            stFontSize = fontSizeCandidate > 0 ? fontSizeCandidate : 16;
+        } else {
+            stFontSize = 16;
+        }
 
         if (!isInternal) {
             uri = Uri.parse(videoPath);
@@ -986,12 +992,15 @@ public class FullscreenExoPlayerFragment extends Fragment {
             foreground = Color.TRANSPARENT;
             background = Color.TRANSPARENT;
         }
-        styledPlayerView
-            .getSubtitleView()
-            .setStyle(
-                new CaptionStyleCompat(foreground, background, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, Color.WHITE, null)
-            );
-        styledPlayerView.getSubtitleView().setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, stFontSize);
+        SubtitleView subtitleView = styledPlayerView.getSubtitleView();
+        if (subTitleOptions != null) {
+            subtitleView.setApplyEmbeddedStyles(false);
+            subtitleView.setApplyEmbeddedFontSizes(false);
+        }
+        subtitleView.setStyle(
+            new CaptionStyleCompat(foreground, background, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, Color.WHITE, null)
+        );
+        subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, stFontSize);
     }
 
     /**
