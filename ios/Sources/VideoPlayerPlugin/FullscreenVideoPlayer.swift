@@ -364,7 +364,12 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func seekToChapter(_ chapter: VideoChapter) {
-        setCurrentTime(chapter.startTime)
+        if castController?.isCasting == true {
+            setCurrentTime(chapter.startTime)
+        } else {
+            let target = CMTime(seconds: chapter.startTime, preferredTimescale: 600)
+            player?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+        }
         play()
     }
 

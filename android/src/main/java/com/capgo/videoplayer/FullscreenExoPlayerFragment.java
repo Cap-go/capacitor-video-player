@@ -988,7 +988,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
             labels[i] = formatChapterLabel(chapters.get(i));
         }
 
-        new AlertDialog.Builder(context)
+        new AlertDialog.Builder(requireActivity())
             .setTitle("Chapters")
             .setItems(labels, (dialog, which) -> seekToChapter(chapters.get(which)))
             .show();
@@ -1007,11 +1007,17 @@ public class FullscreenExoPlayerFragment extends Fragment {
     }
 
     private void seekToChapter(VideoChapter chapter) {
-        if (player == null || chapter == null) {
+        if (chapter == null) {
             return;
         }
         long targetMs = (long) (chapter.startTimeSeconds * 1000.0);
-        player.seekTo(targetMs);
+        if (isCastSession && castPlayer != null) {
+            castPlayer.seekTo(targetMs);
+        } else if (player != null) {
+            player.seekTo(targetMs);
+        } else {
+            return;
+        }
         play();
     }
 
