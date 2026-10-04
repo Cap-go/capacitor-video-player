@@ -469,7 +469,8 @@ Show again a previously hidden player UI (native fullscreen).
 getPluginVersion() => Promise<{ version: string; }>
 ```
 
-Get the native Capacitor plugin version
+Get the native Capacitor plugin version.
+On web, the implementation returns `"web"`.
 
 **Returns:** <code>Promise&lt;{ version: string; }&gt;</code>
 

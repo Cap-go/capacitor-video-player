@@ -95,9 +95,10 @@ export interface VideoPlayerPlugin {
    */
   showPlayer(): Promise<capVideoPlayerResult>;
   /**
-   * Get the native Capacitor plugin version
+   * Get the native Capacitor plugin version.
+   * On web, the implementation returns `"web"`.
    *
-   * @returns Promise resolving to the plugin version string for this build
+   * @returns Promise resolving to the plugin version string for this build (`"web"` on web)
    */
   getPluginVersion(): Promise<{ version: string }>;
 }
