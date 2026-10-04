@@ -1,0 +1,10 @@
+[
+  {
+    "thread_id": "PRRT_kwDOP_Z28s6o3nmD",
+    "reply": "acquire now stages registrations and commits only after applyCategory and setActive succeed."
+  },
+  {
+    "thread_id": "PRRT_kwDOP_Z28s6o3qAM",
+    "reply": "Same staging fix: the registry updates only after both AVAudioSession calls succeed."
+  }
+]
