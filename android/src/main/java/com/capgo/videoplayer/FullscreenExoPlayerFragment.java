@@ -1013,11 +1013,13 @@ public class FullscreenExoPlayerFragment extends Fragment {
         long targetMs = (long) (chapter.startTimeSeconds * 1000.0);
         if (isCastSession && castPlayer != null) {
             castPlayer.seekTo(targetMs);
-        } else if (player != null) {
-            player.seekTo(targetMs);
-        } else {
+            castPlayer.setPlayWhenReady(true);
             return;
         }
+        if (player == null) {
+            return;
+        }
+        player.seekTo(targetMs);
         play();
     }
 
