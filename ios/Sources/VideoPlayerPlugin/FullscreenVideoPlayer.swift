@@ -3,34 +3,6 @@ import AVKit
 import AVFoundation
 import UIKit
 
-private enum VideoPlayerAudioSessionCoordinator {
-    private static let lock = NSLock()
-    private static var activePlayerCount = 0
-
-    static func acquire() throws {
-        lock.lock()
-        defer { lock.unlock() }
-        if activePlayerCount == 0 {
-            try AVAudioSession.sharedInstance().setActive(true)
-        }
-        activePlayerCount += 1
-    }
-
-    static func release() {
-        lock.lock()
-        defer { lock.unlock() }
-        guard activePlayerCount > 0 else { return }
-        activePlayerCount -= 1
-        if activePlayerCount == 0 {
-            do {
-                try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
-            } catch {
-                print("Error deactivating AVAudioSession: \(error)")
-            }
-        }
-    }
-}
-
 // swiftlint:disable:next type_body_length
 class FullscreenVideoPlayer: NSObject {
     private var player: AVPlayer?
@@ -50,6 +22,7 @@ class FullscreenVideoPlayer: NSObject {
     private var artwork: String?
     private var rate: Float
     private var audioCategory: String?
+    private let audioSessionRegistrationId = UUID()
     private var holdsSharedAudioSession = false
     private var didEmitReady: Bool = false
     private var exitEmission = ExitEmissionGuard()
@@ -811,31 +784,11 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func configureAudioSession() {
-        let resolvedCategory = resolvedAudioCategory()
-
-        let session = AVAudioSession.sharedInstance()
         do {
-            switch resolvedCategory {
-            case "ambient":
-                try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
-            case "playback":
-                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            case "moviePlayback":
-                if #available(iOS 13.0, *) {
-                    try session.setCategory(
-                        .playback,
-                        mode: .moviePlayback,
-                        policy: .longFormVideo,
-                        options: [.mixWithOthers]
-                    )
-                } else {
-                    try session.setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
-                }
-            default:
-                try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
-            }
-
-            try VideoPlayerAudioSessionCoordinator.acquire()
+            try VideoPlayerAudioSessionCoordinator.acquire(
+                registrationId: audioSessionRegistrationId,
+                needs: currentAudioSessionNeeds()
+            )
             holdsSharedAudioSession = true
         } catch {
             holdsSharedAudioSession = false
@@ -843,22 +796,23 @@ class FullscreenVideoPlayer: NSObject {
         }
     }
 
-    private func resolvedAudioCategory() -> String {
+    private func currentAudioSessionNeeds() -> VideoPlayerAudioSessionNeeds {
+        let explicitCategory: String?
         if let audioCategory {
             let trimmed = audioCategory.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
-                return trimmed
-            }
+            explicitCategory = trimmed.isEmpty ? nil : trimmed
+        } else {
+            explicitCategory = nil
         }
-        if bkmodeEnabled || pipEnabled {
-            return "playback"
-        }
-        return "ambient"
+        return VideoPlayerAudioSessionNeeds(
+            explicitCategory: explicitCategory,
+            needsBackgroundOrPipPlayback: bkmodeEnabled || pipEnabled
+        )
     }
 
     private func deactivateAudioSessionIfNeeded() {
         guard holdsSharedAudioSession else { return }
-        VideoPlayerAudioSessionCoordinator.release()
+        VideoPlayerAudioSessionCoordinator.release(registrationId: audioSessionRegistrationId)
         holdsSharedAudioSession = false
     }
 
