@@ -84,6 +84,7 @@ extension VideoPlayerPlugin {
         let chromecastUrl = call.getString("chromecastUrl")
         let audioCategory = call.getString("audioCategory")
         let subtitleTracks = Self.parseSubtitleTracks(from: call)
+        let subtitleStyleOptions = Self.parseSubtitleStyleOptions(from: call)
         let drmOptions = Self.parseDrmOptions(from: call)
 
         // Create video player
@@ -101,6 +102,7 @@ extension VideoPlayerPlugin {
             smallTitle: smallTitle,
             artwork: artwork,
             subtitleTracks: subtitleTracks,
+            subtitleStyleOptions: subtitleStyleOptions,
             fairplayCertificateUrl: drmOptions.fairplayCertificateUrl,
             fairplayContentKeySpcUrl: drmOptions.fairplayContentKeySpcUrl,
             fairplayAssetId: drmOptions.fairplayAssetId,
@@ -135,6 +137,25 @@ extension VideoPlayerPlugin {
                 }
             }
         }
+    }
+
+    private static func parseSubtitleStyleOptions(from call: CAPPluginCall) -> SubtitleStyleOptions? {
+        guard let options = call.getObject("subtitleOptions") else {
+            return nil
+        }
+
+        let fontSize: Double?
+        if let number = options["fontSize"] as? NSNumber {
+            fontSize = number.doubleValue
+        } else {
+            fontSize = nil
+        }
+
+        return SubtitleStyleOptions(
+            foregroundColor: options["foregroundColor"] as? String,
+            backgroundColor: options["backgroundColor"] as? String,
+            fontSize: fontSize
+        )
     }
 
     private static func parseSubtitleTracks(from call: CAPPluginCall) -> [VideoSubtitleTrack] {

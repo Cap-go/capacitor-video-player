@@ -534,11 +534,17 @@ Show again a previously hidden player UI (native fullscreen).
 
 #### SubTitleOptions
 
-| Prop                  | Type                | Description                                           |
-| --------------------- | ------------------- | ----------------------------------------------------- |
-| **`foregroundColor`** | <code>string</code> | Foreground Color in RGBA (default rgba(255,255,255,1) |
-| **`backgroundColor`** | <code>string</code> | Background Color in RGBA (default rgba(0,0,0,1)       |
-| **`fontSize`**        | <code>number</code> | Font Size in pixels (default 16)                      |
+Optional styling for on-screen subtitles.
+
+On iOS, colors and font size are applied through `AVPlayerItem` text style
+rules. That path applies to WebVTT and other timed text the platform exposes
+to those rules; some embedded legible streams may not honor these options.
+
+| Prop                  | Type                | Description                                                                                                                                                      |
+| --------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`foregroundColor`** | <code>string</code> | Foreground Color in RGBA (default rgba(255,255,255,1))                                                                                                           |
+| **`backgroundColor`** | <code>string</code> | Background Color in RGBA (default rgba(0,0,0,1))                                                                                                                 |
+| **`fontSize`**        | <code>number</code> | Font size in CSS pixels (default 16). Android applies this directly. On iOS, values map to AVFoundation relative size where 16 equals the system default (100%). |
 
 | Method               | Signature                                    | Description                             |
 | -------------------- | -------------------------------------------- | --------------------------------------- |
