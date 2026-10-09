@@ -11,7 +11,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0"),
-        .package(url: "https://github.com/SRGSSR/google-cast-sdk.git", exact: "4.8.4")
+        .package(url: "https://github.com/SRGSSR/google-cast-sdk.git", exact: "4.8.6")
     ],
     targets: [
         .target(
