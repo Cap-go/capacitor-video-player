@@ -76,6 +76,7 @@ extension VideoPlayerPlugin {
         let exitOnEnd = call.getBool("exitOnEnd") ?? true
         let loopOnEnd = call.getBool("loopOnEnd") ?? false
         let pipEnabled = call.getBool("pipEnabled") ?? true
+        let bkmodeEnabled = call.getBool("bkmodeEnabled") ?? true
         let showControls = call.getBool("showControls") ?? true
         let chromecast = call.getBool("chromecast") ?? true
         let title = call.getString("title")
@@ -94,6 +95,7 @@ extension VideoPlayerPlugin {
             exitOnEnd: exitOnEnd,
             loopOnEnd: loopOnEnd,
             pipEnabled: pipEnabled,
+            bkmodeEnabled: bkmodeEnabled,
             showControls: showControls,
             chromecast: chromecast,
             chromecastUrl: chromecastUrl,
