@@ -148,6 +148,11 @@ export interface capVideoPlayerOptions {
    */
   subtitles?: VideoSubtitle[];
   /**
+   * Chapter markers for long-form content (iOS, Android).
+   * Shown as a chapter list in the native fullscreen player; selecting a chapter seeks to `startTime`.
+   */
+  chapters?: VideoChapter[];
+  /**
    * SubTitle Options
    */
   subtitleOptions?: SubTitleOptions;
@@ -348,6 +353,20 @@ export interface VideoSubtitle {
    * see https://github.com/libyal/libfwnt/wiki/Language-Code-identifiers
    */
   language?: string;
+}
+export interface VideoChapter {
+  /**
+   * Chapter title shown in the chapter list
+   */
+  title: string;
+  /**
+   * Start time in seconds
+   */
+  startTime: number;
+  /**
+   * End time in seconds (optional). Stored for future timeline markers; chapter jumps use `startTime` only in this release.
+   */
+  endTime?: number;
 }
 export interface SubTitleOptions {
   /**

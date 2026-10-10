@@ -517,6 +517,7 @@ On web, the implementation returns `"web"`.
 | **`subtitle`**        | <code>string</code>                                         | The url of subtitle associated with the video Prefer `subtitles` when providing more than one track. Kept for backward compatibility.                                                                                                       |
 | **`language`**        | <code>string</code>                                         | The language of subtitle see https://github.com/libyal/libfwnt/wiki/Language-Code-identifiers Prefer `subtitles` when providing more than one track. Kept for backward compatibility.                                                       |
 | **`subtitles`**       | <code>VideoSubtitle[]</code>                                | Multiple subtitle tracks (iOS, Android). When provided, takes precedence over `subtitle` / `language`.                                                                                                                                      |
+| **`chapters`**        | <code>VideoChapter[]</code>                                 | Chapter markers for long-form content (iOS, Android). Shown as a chapter list in the native fullscreen player; selecting a chapter seeks to `startTime`.                                                                                    |
 | **`subtitleOptions`** | <code><a href="#subtitleoptions">SubTitleOptions</a></code> | SubTitle Options                                                                                                                                                                                                                            |
 | **`playerId`**        | <code>string</code>                                         | Id of DIV Element parent of the player                                                                                                                                                                                                      |
 | **`rate`**            | <code>number</code>                                         | Initial playing rate                                                                                                                                                                                                                        |
@@ -545,6 +546,15 @@ On web, the implementation returns `"web"`.
 | -------------- | ------------------- | ------------------------------------------------------------------------------------------------- |
 | **`subtitle`** | <code>string</code> | The url of the subtitle file (vtt, srt, ...)                                                      |
 | **`language`** | <code>string</code> | The language of the subtitle see https://github.com/libyal/libfwnt/wiki/Language-Code-identifiers |
+
+
+#### VideoChapter
+
+| Prop            | Type                | Description                                                                                                             |
+| --------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **`title`**     | <code>string</code> | Chapter title shown in the chapter list                                                                                 |
+| **`startTime`** | <code>number</code> | Start time in seconds                                                                                                   |
+| **`endTime`**   | <code>number</code> | End time in seconds (optional). Stored for future timeline markers; chapter jumps use `startTime` only in this release. |
 
 
 #### SubTitleOptions
