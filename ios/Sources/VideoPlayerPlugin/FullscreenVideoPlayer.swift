@@ -13,6 +13,7 @@ class FullscreenVideoPlayer: NSObject {
     private var exitOnEnd: Bool
     private var loopOnEnd: Bool
     private var pipEnabled: Bool
+    private var bkmodeEnabled: Bool
     private var showControls: Bool
     private var chromecast: Bool
     private var chromecastUrl: String?
@@ -21,7 +22,8 @@ class FullscreenVideoPlayer: NSObject {
     private var artwork: String?
     private var rate: Float
     private var audioCategory: String?
-    private var didActivateAudioSession: Bool = false
+    private let audioSessionRegistrationId = UUID()
+    private var holdsSharedAudioSession = false
     private var didEmitReady: Bool = false
     private var exitEmission = ExitEmissionGuard()
     private var isTransitioningToPictureInPicture = false
@@ -54,6 +56,7 @@ class FullscreenVideoPlayer: NSObject {
         exitOnEnd: Bool,
         loopOnEnd: Bool,
         pipEnabled: Bool,
+        bkmodeEnabled: Bool = true,
         showControls: Bool,
         chromecast: Bool,
         chromecastUrl: String? = nil,
@@ -73,6 +76,7 @@ class FullscreenVideoPlayer: NSObject {
         self.exitOnEnd = exitOnEnd
         self.loopOnEnd = loopOnEnd
         self.pipEnabled = pipEnabled
+        self.bkmodeEnabled = bkmodeEnabled
         self.showControls = showControls
         self.chromecast = chromecast
         self.chromecastUrl = chromecastUrl
@@ -780,45 +784,36 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func configureAudioSession() {
-        guard let audioCategory else { return }
-
-        let session = AVAudioSession.sharedInstance()
         do {
-            switch audioCategory {
-            case "ambient":
-                try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
-            case "playback":
-                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            case "moviePlayback":
-                if #available(iOS 13.0, *) {
-                    try session.setCategory(
-                        .playback,
-                        mode: .moviePlayback,
-                        policy: .longFormVideo,
-                        options: [.mixWithOthers]
-                    )
-                } else {
-                    try session.setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
-                }
-            default:
-                return
-            }
-
-            try session.setActive(true)
-            didActivateAudioSession = true
+            try VideoPlayerAudioSessionCoordinator.acquire(
+                registrationId: audioSessionRegistrationId,
+                needs: currentAudioSessionNeeds()
+            )
+            holdsSharedAudioSession = true
         } catch {
+            holdsSharedAudioSession = false
             print("Error configuring AVAudioSession: \(error)")
         }
     }
 
-    private func deactivateAudioSessionIfNeeded() {
-        guard didActivateAudioSession else { return }
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
-            didActivateAudioSession = false
-        } catch {
-            print("Error deactivating AVAudioSession: \(error)")
+    private func currentAudioSessionNeeds() -> VideoPlayerAudioSessionNeeds {
+        let explicitCategory: String?
+        if let audioCategory {
+            let trimmed = audioCategory.trimmingCharacters(in: .whitespacesAndNewlines)
+            explicitCategory = trimmed.isEmpty ? nil : trimmed
+        } else {
+            explicitCategory = nil
         }
+        return VideoPlayerAudioSessionNeeds(
+            explicitCategory: explicitCategory,
+            needsBackgroundOrPipPlayback: bkmodeEnabled || pipEnabled
+        )
+    }
+
+    private func deactivateAudioSessionIfNeeded() {
+        guard holdsSharedAudioSession else { return }
+        VideoPlayerAudioSessionCoordinator.release(registrationId: audioSessionRegistrationId)
+        holdsSharedAudioSession = false
     }
 
     private func configurePresentationDelegate(for playerVC: UIViewController) {
