@@ -46,7 +46,7 @@ import org.json.JSONObject;
 )
 public class VideoPlayerPlugin extends Plugin {
 
-    private final String pluginVersion = "8.2.10";
+    private final String pluginVersion = "8.2.14";
 
     // Permission alias constants
     private static final String PERMISSION_DENIED_ERROR = "Unable to access media videos, user denied permission request";
@@ -295,27 +295,25 @@ public class VideoPlayerPlugin extends Plugin {
             return;
         }
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "isPlaying");
-                            if (fsFragment != null) {
-                                boolean playing = fsFragment.isPlaying();
-                                ret.put("result", true);
-                                ret.put("value", playing);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "isPlaying");
+                        if (fsFragment != null) {
+                            boolean playing = fsFragment.isPlaying();
+                            ret.put("result", true);
+                            ret.put("value", playing);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -336,28 +334,26 @@ public class VideoPlayerPlugin extends Plugin {
             return;
         }
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "play");
-                            if (fsFragment != null) {
-                                fsFragment.play();
-                                boolean playing = fsFragment.isPlaying();
-                                ret.put("result", true);
-                                ret.put("value", true);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "play");
+                        if (fsFragment != null) {
+                            fsFragment.play();
+                            boolean playing = fsFragment.isPlaying();
+                            ret.put("result", true);
+                            ret.put("value", true);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -378,27 +374,25 @@ public class VideoPlayerPlugin extends Plugin {
             return;
         }
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "pause");
-                            if (fsFragment != null) {
-                                fsFragment.pause();
-                                ret.put("result", true);
-                                ret.put("value", true);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "pause");
+                        if (fsFragment != null) {
+                            fsFragment.pause();
+                            ret.put("result", true);
+                            ret.put("value", true);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -419,27 +413,25 @@ public class VideoPlayerPlugin extends Plugin {
             return;
         }
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "getDuration");
-                            if (fsFragment != null) {
-                                int duration = fsFragment.getDuration();
-                                ret.put("result", true);
-                                ret.put("value", duration);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "getDuration");
+                        if (fsFragment != null) {
+                            int duration = fsFragment.getDuration();
+                            ret.put("result", true);
+                            ret.put("value", duration);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -460,27 +452,25 @@ public class VideoPlayerPlugin extends Plugin {
             return;
         }
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "getCurrentTime");
-                            if (fsFragment != null) {
-                                int curTime = fsFragment.getCurrentTime();
-                                ret.put("result", true);
-                                ret.put("value", curTime);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "getCurrentTime");
+                        if (fsFragment != null) {
+                            int curTime = fsFragment.getCurrentTime();
+                            ret.put("result", true);
+                            ret.put("value", curTime);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -509,27 +499,25 @@ public class VideoPlayerPlugin extends Plugin {
         }
         final int cTime = (int) Math.round(value);
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "setCurrentTime");
-                            if (fsFragment != null) {
-                                fsFragment.setCurrentTime(cTime);
-                                ret.put("result", true);
-                                ret.put("value", cTime);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "setCurrentTime");
+                        if (fsFragment != null) {
+                            fsFragment.setCurrentTime(cTime);
+                            ret.put("result", true);
+                            ret.put("value", cTime);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -550,27 +538,25 @@ public class VideoPlayerPlugin extends Plugin {
             return;
         }
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "getVolume");
-                            if (fsFragment != null) {
-                                Float volume = fsFragment.getVolume();
-                                ret.put("result", true);
-                                ret.put("value", volume);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "getVolume");
+                        if (fsFragment != null) {
+                            Float volume = fsFragment.getVolume();
+                            ret.put("result", true);
+                            ret.put("value", volume);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -599,27 +585,25 @@ public class VideoPlayerPlugin extends Plugin {
             return;
         }
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "setVolume");
-                            if (fsFragment != null) {
-                                fsFragment.setVolume(volume);
-                                ret.put("result", true);
-                                ret.put("value", volume);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "setVolume");
+                        if (fsFragment != null) {
+                            fsFragment.setVolume(volume);
+                            ret.put("result", true);
+                            ret.put("value", volume);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -640,27 +624,25 @@ public class VideoPlayerPlugin extends Plugin {
             return;
         }
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "getMuted");
-                            if (fsFragment != null) {
-                                boolean value = fsFragment.getMuted();
-                                ret.put("result", true);
-                                ret.put("value", value);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "getMuted");
+                        if (fsFragment != null) {
+                            boolean value = fsFragment.getMuted();
+                            ret.put("result", true);
+                            ret.put("value", value);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -689,27 +671,25 @@ public class VideoPlayerPlugin extends Plugin {
         }
         final boolean bValue = value;
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "setMuted");
-                            if (fsFragment != null) {
-                                fsFragment.setMuted(bValue);
-                                ret.put("result", true);
-                                ret.put("value", bValue);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "setMuted");
+                        if (fsFragment != null) {
+                            fsFragment.setMuted(bValue);
+                            ret.put("result", true);
+                            ret.put("value", bValue);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -730,27 +710,25 @@ public class VideoPlayerPlugin extends Plugin {
             return;
         }
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "getRate");
-                            if (fsFragment != null) {
-                                Float rate = fsFragment.getRate();
-                                ret.put("result", true);
-                                ret.put("value", rate);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "getRate");
+                        if (fsFragment != null) {
+                            Float rate = fsFragment.getRate();
+                            ret.put("result", true);
+                            ret.put("value", rate);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -784,27 +762,25 @@ public class VideoPlayerPlugin extends Plugin {
             videoRate = 1f;
         }
         if ("fullscreen".equals(mode) && fsPlayerId.equals(playerId)) {
-            bridge
-                .getActivity()
-                .runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            JSObject ret = new JSObject();
-                            ret.put("method", "setRate");
-                            if (fsFragment != null) {
-                                fsFragment.setRate(videoRate);
-                                ret.put("result", true);
-                                ret.put("value", videoRate);
-                                call.resolve(ret);
-                            } else {
-                                ret.put("result", false);
-                                ret.put("message", "Fullscreen fragment is not defined");
-                                call.resolve(ret);
-                            }
+            bridge.getActivity().runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        JSObject ret = new JSObject();
+                        ret.put("method", "setRate");
+                        if (fsFragment != null) {
+                            fsFragment.setRate(videoRate);
+                            ret.put("result", true);
+                            ret.put("value", videoRate);
+                            call.resolve(ret);
+                        } else {
+                            ret.put("result", false);
+                            ret.put("message", "Fullscreen fragment is not defined");
+                            call.resolve(ret);
                         }
                     }
-                );
+                }
+            );
         } else {
             ret.put("result", false);
             ret.put("message", "player is not defined");
@@ -815,174 +791,162 @@ public class VideoPlayerPlugin extends Plugin {
     @PluginMethod
     public void stopAllPlayers(PluginCall call) {
         this.call = call;
-        bridge
-            .getActivity()
-            .runOnUiThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        JSObject ret = new JSObject();
-                        ret.put("method", "stopAllPlayers");
-                        if (fsFragment != null) {
-                            fsFragment.pause();
-                            ret.put("result", true);
-                            ret.put("value", true);
-                            call.resolve(ret);
-                        } else {
-                            ret.put("result", false);
-                            ret.put("message", "Fullscreen fragment is not defined");
-                            call.resolve(ret);
-                        }
+        bridge.getActivity().runOnUiThread(
+            new Runnable() {
+                @Override
+                public void run() {
+                    JSObject ret = new JSObject();
+                    ret.put("method", "stopAllPlayers");
+                    if (fsFragment != null) {
+                        fsFragment.pause();
+                        ret.put("result", true);
+                        ret.put("value", true);
+                        call.resolve(ret);
+                    } else {
+                        ret.put("result", false);
+                        ret.put("message", "Fullscreen fragment is not defined");
+                        call.resolve(ret);
                     }
                 }
-            );
+            }
+        );
     }
 
     @PluginMethod
     public void isControllerIsFullyVisible(PluginCall call) {
         this.call = call;
-        bridge
-            .getActivity()
-            .runOnUiThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        JSObject ret = new JSObject();
-                        ret.put("method", "isControllerIsFullyVisible");
-                        if (fsFragment != null) {
-                            ret.put("result", true);
-                            ret.put("value", fsFragment.isControllerIsFullyVisible());
-                            call.resolve(ret);
-                        } else {
-                            ret.put("result", false);
-                            ret.put("message", "Fullscreen fragment is not defined");
-                            call.resolve(ret);
-                        }
+        bridge.getActivity().runOnUiThread(
+            new Runnable() {
+                @Override
+                public void run() {
+                    JSObject ret = new JSObject();
+                    ret.put("method", "isControllerIsFullyVisible");
+                    if (fsFragment != null) {
+                        ret.put("result", true);
+                        ret.put("value", fsFragment.isControllerIsFullyVisible());
+                        call.resolve(ret);
+                    } else {
+                        ret.put("result", false);
+                        ret.put("message", "Fullscreen fragment is not defined");
+                        call.resolve(ret);
                     }
                 }
-            );
+            }
+        );
     }
 
     @PluginMethod
     public void showController(PluginCall call) {
         this.call = call;
-        bridge
-            .getActivity()
-            .runOnUiThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        JSObject ret = new JSObject();
-                        ret.put("method", "showController");
-                        if (fsFragment != null) {
-                            fsFragment.showController();
-                            ret.put("result", true);
-                            ret.put("value", true);
-                            call.resolve(ret);
-                        } else {
-                            ret.put("result", false);
-                            ret.put("message", "Fullscreen fragment is not defined");
-                            call.resolve(ret);
-                        }
+        bridge.getActivity().runOnUiThread(
+            new Runnable() {
+                @Override
+                public void run() {
+                    JSObject ret = new JSObject();
+                    ret.put("method", "showController");
+                    if (fsFragment != null) {
+                        fsFragment.showController();
+                        ret.put("result", true);
+                        ret.put("value", true);
+                        call.resolve(ret);
+                    } else {
+                        ret.put("result", false);
+                        ret.put("message", "Fullscreen fragment is not defined");
+                        call.resolve(ret);
                     }
                 }
-            );
+            }
+        );
     }
 
     @PluginMethod
     public void exitPlayer(PluginCall call) {
         this.call = call;
-        bridge
-            .getActivity()
-            .runOnUiThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        JSObject ret = new JSObject();
-                        ret.put("method", "exitPlayer");
-                        if (fsFragment != null) {
-                            fsFragment.playerExit();
-                            ret.put("result", true);
-                            ret.put("value", true);
-                            call.resolve(ret);
-                        } else {
-                            ret.put("result", false);
-                            ret.put("message", "Fullscreen fragment is not defined");
-                            call.resolve(ret);
-                        }
+        bridge.getActivity().runOnUiThread(
+            new Runnable() {
+                @Override
+                public void run() {
+                    JSObject ret = new JSObject();
+                    ret.put("method", "exitPlayer");
+                    if (fsFragment != null) {
+                        fsFragment.playerExit();
+                        ret.put("result", true);
+                        ret.put("value", true);
+                        call.resolve(ret);
+                    } else {
+                        ret.put("result", false);
+                        ret.put("message", "Fullscreen fragment is not defined");
+                        call.resolve(ret);
                     }
                 }
-            );
+            }
+        );
     }
 
     @PluginMethod
     public void hidePlayer(PluginCall call) {
         this.call = call;
-        bridge
-            .getActivity()
-            .runOnUiThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        JSObject ret = new JSObject();
-                        ret.put("method", "hidePlayer");
-                        FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
-                        if (frameLayoutView != null && fsFragment != null) {
-                            frameLayoutView.setVisibility(View.GONE);
-                            Activity activity = getBridge().getActivity();
-                            activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-                            activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                            activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
-                            ret.put("result", true);
-                            ret.put("value", true);
-                        } else {
-                            ret.put("result", false);
-                            ret.put("message", "Fullscreen player is not defined");
-                        }
-                        call.resolve(ret);
+        bridge.getActivity().runOnUiThread(
+            new Runnable() {
+                @Override
+                public void run() {
+                    JSObject ret = new JSObject();
+                    ret.put("method", "hidePlayer");
+                    FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
+                    if (frameLayoutView != null && fsFragment != null) {
+                        frameLayoutView.setVisibility(View.GONE);
+                        Activity activity = getBridge().getActivity();
+                        activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                        activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                        activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+                        ret.put("result", true);
+                        ret.put("value", true);
+                    } else {
+                        ret.put("result", false);
+                        ret.put("message", "Fullscreen player is not defined");
                     }
+                    call.resolve(ret);
                 }
-            );
+            }
+        );
     }
 
     @PluginMethod
     public void showPlayer(PluginCall call) {
         this.call = call;
-        bridge
-            .getActivity()
-            .runOnUiThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        JSObject ret = new JSObject();
-                        ret.put("method", "showPlayer");
-                        FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
-                        if (frameLayoutView != null && fsFragment != null) {
-                            frameLayoutView.setVisibility(View.VISIBLE);
-                            Activity activity = getBridge().getActivity();
-                            activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-                            activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-                            activity
-                                .getWindow()
-                                .getDecorView()
-                                .setSystemUiVisibility(
-                                    View.SYSTEM_UI_FLAG_LOW_PROFILE |
-                                        View.SYSTEM_UI_FLAG_FULLSCREEN |
-                                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                                        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
-                                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                                );
-                            ret.put("result", true);
-                            ret.put("value", true);
-                        } else {
-                            ret.put("result", false);
-                            ret.put("message", "Fullscreen player is not defined");
-                        }
-                        call.resolve(ret);
+        bridge.getActivity().runOnUiThread(
+            new Runnable() {
+                @Override
+                public void run() {
+                    JSObject ret = new JSObject();
+                    ret.put("method", "showPlayer");
+                    FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
+                    if (frameLayoutView != null && fsFragment != null) {
+                        frameLayoutView.setVisibility(View.VISIBLE);
+                        Activity activity = getBridge().getActivity();
+                        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                        activity
+                            .getWindow()
+                            .getDecorView()
+                            .setSystemUiVisibility(
+                                View.SYSTEM_UI_FLAG_LOW_PROFILE |
+                                    View.SYSTEM_UI_FLAG_FULLSCREEN |
+                                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            );
+                        ret.put("result", true);
+                        ret.put("value", true);
+                    } else {
+                        ret.put("result", false);
+                        ret.put("message", "Fullscreen player is not defined");
                     }
+                    call.resolve(ret);
                 }
-            );
+            }
+        );
     }
 
     public boolean isDeviceTV(Context context) {
@@ -1049,7 +1013,7 @@ public class VideoPlayerPlugin extends Plugin {
         }
     }
 
-    private Boolean isInRate(Float arr[], Float rate) {
+    private Boolean isInRate(Float[] arr, Float rate) {
         Boolean ret = false;
         for (Float el : arr) {
             if (el.equals(rate)) {
@@ -1108,24 +1072,22 @@ public class VideoPlayerPlugin extends Plugin {
                     final JSObject data = new JSObject();
                     data.put("fromPlayerId", this.getInfo().get("fromPlayerId"));
                     data.put("currentTime", this.getInfo().get("currentTime"));
-                    bridge
-                        .getActivity()
-                        .runOnUiThread(
-                            new Runnable() {
-                                @Override
-                                public void run() {
-                                    FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
+                    bridge.getActivity().runOnUiThread(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
 
-                                    if (frameLayoutView != null) {
-                                        ((ViewGroup) getBridge().getWebView().getParent()).removeView(frameLayoutView);
-                                        fragmentUtils.removeFragment(fsFragment);
-                                    }
-                                    fsFragment = null;
-                                    NotificationCenter.defaultCenter().removeAllNotifications();
-                                    notifyListeners("jeepCapVideoPlayerEnded", data);
+                                if (frameLayoutView != null) {
+                                    ((ViewGroup) getBridge().getWebView().getParent()).removeView(frameLayoutView);
+                                    fragmentUtils.removeFragment(fsFragment);
                                 }
+                                fsFragment = null;
+                                NotificationCenter.defaultCenter().removeAllNotifications();
+                                notifyListeners("jeepCapVideoPlayerEnded", data);
                             }
-                        );
+                        }
+                    );
                 }
             }
         );
@@ -1139,24 +1101,22 @@ public class VideoPlayerPlugin extends Plugin {
                     if (Integer.valueOf((String) this.getInfo().get("dismiss")) == 1) ret = true;
                     data.put("dismiss", ret);
                     data.put("currentTime", this.getInfo().get("currentTime"));
-                    bridge
-                        .getActivity()
-                        .runOnUiThread(
-                            new Runnable() {
-                                @Override
-                                public void run() {
-                                    FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
+                    bridge.getActivity().runOnUiThread(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
 
-                                    if (frameLayoutView != null) {
-                                        ((ViewGroup) getBridge().getWebView().getParent()).removeView(frameLayoutView);
-                                        fragmentUtils.removeFragment(fsFragment);
-                                    }
-                                    fsFragment = null;
-                                    NotificationCenter.defaultCenter().removeAllNotifications();
-                                    notifyListeners("jeepCapVideoPlayerExit", data);
+                                if (frameLayoutView != null) {
+                                    ((ViewGroup) getBridge().getWebView().getParent()).removeView(frameLayoutView);
+                                    fragmentUtils.removeFragment(fsFragment);
                                 }
+                                fsFragment = null;
+                                NotificationCenter.defaultCenter().removeAllNotifications();
+                                notifyListeners("jeepCapVideoPlayerExit", data);
                             }
-                        );
+                        }
+                    );
                 }
             }
         );
@@ -1348,73 +1308,69 @@ public class VideoPlayerPlugin extends Plugin {
             videoId,
             drmOptions
         );
-        bridge
-            .getActivity()
-            .runOnUiThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        JSObject ret = new JSObject();
-                        ret.put("method", "initPlayer");
-                        FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
-                        if (frameLayoutView != null) {
-                            ret.put("result", false);
-                            ret.put("message", "FrameLayout for ExoPlayer already exists");
-                        } else {
-                            // Initialize a new FrameLayout as container for fragment
-                            frameLayoutView = new FrameLayout(getActivity().getApplicationContext());
-                            frameLayoutView.setId(frameLayoutViewId);
-                            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
-                                FrameLayout.LayoutParams.MATCH_PARENT,
-                                FrameLayout.LayoutParams.MATCH_PARENT
-                            );
-                            // Apply the Layout Parameters to frameLayout
-                            frameLayoutView.setLayoutParams(lp);
+        bridge.getActivity().runOnUiThread(
+            new Runnable() {
+                @Override
+                public void run() {
+                    JSObject ret = new JSObject();
+                    ret.put("method", "initPlayer");
+                    FrameLayout frameLayoutView = getBridge().getActivity().findViewById(frameLayoutViewId);
+                    if (frameLayoutView != null) {
+                        ret.put("result", false);
+                        ret.put("message", "FrameLayout for ExoPlayer already exists");
+                    } else {
+                        // Initialize a new FrameLayout as container for fragment
+                        frameLayoutView = new FrameLayout(getActivity().getApplicationContext());
+                        frameLayoutView.setId(frameLayoutViewId);
+                        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            FrameLayout.LayoutParams.MATCH_PARENT
+                        );
+                        // Apply the Layout Parameters to frameLayout
+                        frameLayoutView.setLayoutParams(lp);
 
-                            ((ViewGroup) getBridge().getWebView().getParent()).addView(frameLayoutView);
-                            fragmentUtils.loadFragment(fsFragment, frameLayoutViewId);
-                            ret.put("result", true);
-                        }
-                        call.resolve(ret);
+                        ((ViewGroup) getBridge().getWebView().getParent()).addView(frameLayoutView);
+                        fragmentUtils.loadFragment(fsFragment, frameLayoutViewId);
+                        ret.put("result", true);
                     }
+                    call.resolve(ret);
                 }
-            );
+            }
+        );
     }
 
     private void createPickerVideoFragment(final PluginCall call) {
         pkFragment = implementation.createPickerVideoFragment();
 
-        bridge
-            .getActivity()
-            .runOnUiThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        JSObject ret = new JSObject();
-                        ret.put("method", "initPlayer");
-                        FrameLayout pickerLayoutView = getBridge().getActivity().findViewById(pickerLayoutViewId);
-                        if (pickerLayoutView != null) {
-                            ret.put("result", false);
-                            ret.put("message", "FrameLayout for VideoPicker already exists");
-                        } else {
-                            // Initialize a new FrameLayout as container for fragment
-                            pickerLayoutView = new FrameLayout(getActivity().getApplicationContext());
-                            pickerLayoutView.setId(pickerLayoutViewId);
-                            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
-                                FrameLayout.LayoutParams.MATCH_PARENT,
-                                FrameLayout.LayoutParams.MATCH_PARENT
-                            );
-                            // Apply the Layout Parameters to frameLayout
-                            pickerLayoutView.setLayoutParams(lp);
+        bridge.getActivity().runOnUiThread(
+            new Runnable() {
+                @Override
+                public void run() {
+                    JSObject ret = new JSObject();
+                    ret.put("method", "initPlayer");
+                    FrameLayout pickerLayoutView = getBridge().getActivity().findViewById(pickerLayoutViewId);
+                    if (pickerLayoutView != null) {
+                        ret.put("result", false);
+                        ret.put("message", "FrameLayout for VideoPicker already exists");
+                    } else {
+                        // Initialize a new FrameLayout as container for fragment
+                        pickerLayoutView = new FrameLayout(getActivity().getApplicationContext());
+                        pickerLayoutView.setId(pickerLayoutViewId);
+                        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            FrameLayout.LayoutParams.MATCH_PARENT
+                        );
+                        // Apply the Layout Parameters to frameLayout
+                        pickerLayoutView.setLayoutParams(lp);
 
-                            ((ViewGroup) getBridge().getWebView().getParent()).addView(pickerLayoutView);
-                            fragmentUtils.loadFragment(pkFragment, pickerLayoutViewId);
-                            ret.put("result", true);
-                        }
-                        call.resolve(ret);
+                        ((ViewGroup) getBridge().getWebView().getParent()).addView(pickerLayoutView);
+                        fragmentUtils.loadFragment(pkFragment, pickerLayoutViewId);
+                        ret.put("result", true);
                     }
+                    call.resolve(ret);
                 }
-            );
+            }
+        );
     }
 
     @PluginMethod

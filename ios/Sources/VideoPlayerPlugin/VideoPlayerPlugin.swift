@@ -8,7 +8,7 @@ import AVKit
  */
 @objc(VideoPlayerPlugin)
 public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
-    private let pluginVersion: String = "8.2.10"
+    private let pluginVersion: String = "8.2.14"
     public let identifier = "VideoPlayerPlugin"
     public let jsName = "VideoPlayer"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -76,6 +76,7 @@ extension VideoPlayerPlugin {
         let exitOnEnd = call.getBool("exitOnEnd") ?? true
         let loopOnEnd = call.getBool("loopOnEnd") ?? false
         let pipEnabled = call.getBool("pipEnabled") ?? true
+        let bkmodeEnabled = call.getBool("bkmodeEnabled") ?? true
         let showControls = call.getBool("showControls") ?? true
         let chromecast = call.getBool("chromecast") ?? true
         let title = call.getString("title")
@@ -95,6 +96,7 @@ extension VideoPlayerPlugin {
             exitOnEnd: exitOnEnd,
             loopOnEnd: loopOnEnd,
             pipEnabled: pipEnabled,
+            bkmodeEnabled: bkmodeEnabled,
             showControls: showControls,
             chromecast: chromecast,
             chromecastUrl: chromecastUrl,
