@@ -33,16 +33,14 @@ public class VideoRecyclerViewHolder extends RecyclerView.ViewHolder {
         tv_title.setText(modelVideo.getTitle());
         tv_duration.setText(modelVideo.getDuration());
 
-        parentFragment
-            .getActivity()
-            .runOnUiThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        Picasso.get().load(modelVideo.getData()).placeholder(R.drawable.ic_image_background).fit().into(tv_thumbnail);
-                    }
+        parentFragment.getActivity().runOnUiThread(
+            new Runnable() {
+                @Override
+                public void run() {
+                    Picasso.get().load(modelVideo.getData()).placeholder(R.drawable.ic_image_background).fit().into(tv_thumbnail);
                 }
-            );
+            }
+        );
 
         parent.setOnClickListener(
             new View.OnClickListener() {

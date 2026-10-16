@@ -94,6 +94,13 @@ export interface VideoPlayerPlugin {
    * Show again a previously hidden player UI (native fullscreen).
    */
   showPlayer(): Promise<capVideoPlayerResult>;
+  /**
+   * Get the native Capacitor plugin version.
+   * On web, the implementation returns `"web"`.
+   *
+   * @returns Promise resolving to the plugin version string for this build (`"web"` on web)
+   */
+  getPluginVersion(): Promise<{ version: string }>;
 }
 export interface capEchoOptions {
   /**
@@ -174,10 +181,12 @@ export interface capVideoPlayerOptions {
   bkmodeEnabled?: boolean;
   /**
    * iOS audio session category behavior (iOS).
-   * - "ambient": respects the iPhone silent switch (default)
+   * - "ambient": respects the iPhone silent switch
    * - "playback": ignores the iPhone silent switch
-   * - "moviePlayback": playback optimized for video and long-form AirPlay
-   * default: "ambient"
+   * - "moviePlayback": playback optimized for video and long-form AirPlay.
+   *
+   * When omitted, the plugin resolves the category from other options: `"playback"` if
+   * `pipEnabled` or `bkmodeEnabled` is true (both default to true), otherwise `"ambient"`.
    */
   audioCategory?: 'ambient' | 'playback' | 'moviePlayback';
   /**
@@ -364,14 +373,6 @@ export interface SubTitleOptions {
    * system default (100%).
    */
   fontSize?: number;
-
-  /**
-   * Get the native Capacitor plugin version
-   *
-   * @returns {Promise<{ id: string }>} an Promise with version for this device
-   * @throws An error if the something went wrong
-   */
-  getPluginVersion(): Promise<{ version: string }>;
 }
 export interface FairPlayDrmOptions {
   /**

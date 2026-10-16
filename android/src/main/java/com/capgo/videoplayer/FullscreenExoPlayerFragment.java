@@ -142,9 +142,19 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private static final Rational MIN_PIP_ASPECT_RATIO = new Rational(100, 239);
     private static final Rational MAX_PIP_ASPECT_RATIO = new Rational(239, 100);
     public static final long UNKNOWN_TIME = -1L;
-    private final List<String> supportedFormat = Arrays.asList(
-        new String[] { "mp4", "webm", "ogv", "3gp", "flv", "dash", "mpd", "m3u8", "ism", "ytube", "" }
-    );
+    private final List<String> supportedFormat = Arrays.asList(new String[] {
+        "mp4",
+        "webm",
+        "ogv",
+        "3gp",
+        "flv",
+        "dash",
+        "mpd",
+        "m3u8",
+        "ism",
+        "ytube",
+        ""
+    });
     private Player.Listener listener;
     private StyledPlayerView styledPlayerView;
     private String vType = null;
@@ -1257,9 +1267,8 @@ public class FullscreenExoPlayerFragment extends Fragment {
             styledPlayerView.setUseController(false);
             linearLayout.setVisibility(View.INVISIBLE);
         }
-        long seekPosition = player.getCurrentPosition() == UNKNOWN_TIME
-            ? 0
-            : Math.min(Math.max(0, timeSecond * 1000), player.getDuration());
+        long seekPosition =
+            player.getCurrentPosition() == UNKNOWN_TIME ? 0 : Math.min(Math.max(0, timeSecond * 1000), player.getDuration());
         player.seekTo(seekPosition);
     }
 
@@ -1392,7 +1401,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         // Fall back to path-segment based detection
         String ret = null;
         Object obj = uri.getLastPathSegment();
-        String lastSegment = (obj == null) ? "" : uri.getLastPathSegment();
+        String lastSegment = obj == null ? "" : uri.getLastPathSegment();
         for (String type : supportedFormat) {
             if (ret != null) break;
             if (lastSegment.length() > 0 && lastSegment.contains(type)) ret = type;
@@ -1414,7 +1423,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 }
             }
         }
-        ret = (ret != null) ? ret : "";
+        ret = ret != null ? ret : "";
         return ret;
     }
 
