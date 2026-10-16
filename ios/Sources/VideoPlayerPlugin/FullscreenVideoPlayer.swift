@@ -387,7 +387,11 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private static func formatChapterTime(_ seconds: TimeInterval) -> String {
-        let totalSeconds = max(0, Int(seconds.rounded()))
+        guard seconds.isFinite else {
+            return "0:00"
+        }
+        let clamped = min(max(0, seconds), Double(Int.max))
+        let totalSeconds = Int(clamped.rounded())
         let hours = totalSeconds / 3600
         let minutes = (totalSeconds % 3600) / 60
         let secs = totalSeconds % 60

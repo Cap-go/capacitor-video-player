@@ -20,7 +20,7 @@ struct VideoChapter {
             return nil
         }
 
-        if startTime < 0 {
+        if !startTime.isFinite || startTime < 0 || startTime > Double(Int.max) {
             return nil
         }
 

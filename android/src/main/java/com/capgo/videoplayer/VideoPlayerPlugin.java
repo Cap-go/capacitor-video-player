@@ -1225,11 +1225,11 @@ public class VideoPlayerPlugin extends Plugin {
                 continue;
             }
             double startTime = entry.optDouble("startTime", -1);
-            if (startTime < 0) {
+            if (Double.isNaN(startTime) || Double.isInfinite(startTime) || startTime < 0) {
                 continue;
             }
             Double endTime = entry.has("endTime") ? entry.optDouble("endTime", -1) : null;
-            if (endTime != null && endTime <= startTime) {
+            if (endTime != null && (Double.isNaN(endTime) || Double.isInfinite(endTime) || endTime <= startTime)) {
                 endTime = null;
             }
             parsed.add(new VideoChapter(chapterTitle.trim(), startTime, endTime));
