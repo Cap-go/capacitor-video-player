@@ -566,11 +566,17 @@ On web, the implementation returns `"web"`.
 
 #### SubTitleOptions
 
-| Prop                  | Type                | Description                                           |
-| --------------------- | ------------------- | ----------------------------------------------------- |
-| **`foregroundColor`** | <code>string</code> | Foreground Color in RGBA (default rgba(255,255,255,1) |
-| **`backgroundColor`** | <code>string</code> | Background Color in RGBA (default rgba(0,0,0,1)       |
-| **`fontSize`**        | <code>number</code> | Font Size in pixels (default 16)                      |
+Optional styling for on-screen subtitles.
+
+On iOS, colors and font size are applied through `AVPlayerItem` text style
+rules. That path applies to WebVTT and other timed text the platform exposes
+to those rules; some embedded legible streams may not honor these options.
+
+| Prop                  | Type                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`foregroundColor`** | <code>string</code> | Foreground color in RGBA. On Android, when the plugin applies subtitle styling, omitted values fall back to `rgba(255,255,255,1)`. When `subtitleOptions` is absent, embedded cue colors from the media can override that fallback. On iOS, omitted colors are not set by the plugin; the platform uses the viewer's caption appearance settings instead of fixed plugin defaults.                                                                                                                                   |
+| **`backgroundColor`** | <code>string</code> | Background color in RGBA. On Android, when the plugin applies subtitle styling in fullscreen, omitted values fall back to `rgba(0,0,0,1)`. In picture-in-picture, the background is transparent when `subtitleOptions` is provided, even if this property is omitted. When `subtitleOptions` is absent, embedded cue colors from the media can override the fallback. On iOS, omitted colors are not set by the plugin; the platform uses the viewer's caption appearance settings instead of fixed plugin defaults. |
+| **`fontSize`**        | <code>number</code> | Font size in CSS pixels (default 16). Android applies this directly. On iOS, values map to AVFoundation relative size where 16 equals the system default (100%).                                                                                                                                                                                                                                                                                                                                                     |
 
 
 #### DrmOptions

@@ -42,6 +42,7 @@ class FullscreenVideoPlayer: NSObject {
     private var castController: VideoPlayerCastController?
     private weak var presentingViewController: UIViewController?
     private var subtitleTracks: [VideoSubtitleTrack] = []
+    private var subtitleStyleOptions: SubtitleStyleOptions?
     private var hlsResourceLoader: HLSSubtitleResourceLoader?
     private var subtitleButton: UIButton?
     private var subtitleSelectionObserver: NSObjectProtocol?
@@ -64,6 +65,7 @@ class FullscreenVideoPlayer: NSObject {
         smallTitle: String? = nil,
         artwork: String? = nil,
         subtitleTracks: [VideoSubtitleTrack] = [],
+        subtitleStyleOptions: SubtitleStyleOptions? = nil,
         fairplayCertificateUrl: String? = nil,
         fairplayContentKeySpcUrl: String? = nil,
         fairplayAssetId: String? = nil,
@@ -84,6 +86,7 @@ class FullscreenVideoPlayer: NSObject {
         self.smallTitle = smallTitle
         self.artwork = artwork
         self.subtitleTracks = subtitleTracks
+        self.subtitleStyleOptions = subtitleStyleOptions
         self.fairplayCertificateUrl = fairplayCertificateUrl
         self.fairplayContentKeySpcUrl = fairplayContentKeySpcUrl
         self.fairplayAssetId = fairplayAssetId
@@ -217,6 +220,7 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func configurePlayer(with item: AVPlayerItem) {
+        applySubtitleStyle(to: item)
         playerItem = item
         player = AVPlayer(playerItem: playerItem)
         player?.rate = rate
@@ -239,6 +243,58 @@ class FullscreenVideoPlayer: NSObject {
         setupChromecast()
         setupObservers()
         setupSubtitleSelectionObserver()
+    }
+
+    private func applySubtitleStyle(to item: AVPlayerItem) {
+        guard let subtitleStyleOptions else { return }
+
+        var attributes: [String: Any] = [:]
+        if let fontSize = subtitleStyleOptions.fontSize, fontSize.isFinite, fontSize > 0 {
+            let percent = fontSize / 16.0 * 100.0
+            attributes[kCMTextMarkupAttribute_RelativeFontSize as String] = NSNumber(value: percent)
+        }
+        if let foregroundColor = subtitleStyleOptions.foregroundColor,
+           let colorComponents = Self.parseRGBAComponents(foregroundColor) {
+            attributes[kCMTextMarkupAttribute_ForegroundColorARGB as String] = colorComponents
+        }
+        if let backgroundColor = subtitleStyleOptions.backgroundColor,
+           let colorComponents = Self.parseRGBAComponents(backgroundColor) {
+            attributes[kCMTextMarkupAttribute_BackgroundColorARGB as String] = colorComponents
+        }
+
+        guard !attributes.isEmpty,
+              let rule = AVTextStyleRule(textMarkupAttributes: attributes as [String: Any]) else {
+            return
+        }
+        item.textStyleRules = [rule]
+    }
+
+    private static func parseRGBAComponents(_ value: String) -> [NSNumber]? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard trimmed.hasPrefix("rgba("), trimmed.hasSuffix(")") else {
+            return nil
+        }
+
+        let inner = trimmed.dropFirst(5).dropLast()
+        let parts = inner.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard parts.count == 4,
+              let red = Double(parts[0]), red.isFinite,
+              let green = Double(parts[1]), green.isFinite,
+              let blue = Double(parts[2]), blue.isFinite,
+              let alpha = Double(parts[3]), alpha.isFinite,
+              (0...255).contains(red),
+              (0...255).contains(green),
+              (0...255).contains(blue),
+              (0...1).contains(alpha) else {
+            return nil
+        }
+
+        return [
+            NSNumber(value: alpha),
+            NSNumber(value: red / 255.0),
+            NSNumber(value: green / 255.0),
+            NSNumber(value: blue / 255.0)
+        ]
     }
 
     private func setupSubtitleSelectionObserver() {
@@ -575,6 +631,7 @@ class FullscreenVideoPlayer: NSObject {
 
         let oldItem = playerItem
         removePlayerItemObservers(oldItem)
+        applySubtitleStyle(to: newItem)
         playerItem = newItem
         player.replaceCurrentItem(with: newItem)
         addPlayerItemObservers(newItem)
