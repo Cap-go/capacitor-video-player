@@ -357,6 +357,9 @@ export interface VideoSubtitle {
  * On iOS, colors and font size are applied through `AVPlayerItem` text style
  * rules. That path applies to WebVTT and other timed text the platform exposes
  * to those rules; some embedded legible streams may not honor these options.
+ * Inline WebVTT cue styles can take precedence over equivalent
+ * `subtitleOptions` values; the plugin sets text style rules as a platform
+ * fallback, not a guaranteed override of authored cue styling.
  */
 export interface SubTitleOptions {
   /**

@@ -987,10 +987,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
         return false;
     }
 
-    private boolean hasSubtitleOptionOverrides() {
-        return subTitleOptions != null && subTitleOptions.length() > 0;
-    }
-
     private void applySubtitleAppearance(boolean transparentBackground) {
         int foreground = Color.WHITE;
         if (stForeColor.length() > 4 && stForeColor.substring(0, 4).equals("rgba")) {
@@ -1006,14 +1002,21 @@ public class FullscreenExoPlayerFragment extends Fragment {
             }
         }
         SubtitleView subtitleView = styledPlayerView.getSubtitleView();
-        if (hasSubtitleOptionOverrides()) {
+        if (SubtitleOptionOverrides.hasColor(subTitleOptions)) {
             subtitleView.setApplyEmbeddedStyles(false);
+            subtitleView.setApplyEmbeddedFontSizes(false);
+        } else if (SubtitleOptionOverrides.hasFontSize(subTitleOptions)) {
+            subtitleView.setApplyEmbeddedStyles(true);
             subtitleView.setApplyEmbeddedFontSizes(false);
         }
         subtitleView.setStyle(
             new CaptionStyleCompat(foreground, background, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, Color.WHITE, null)
         );
-        subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, stFontSize);
+        if (SubtitleOptionOverrides.shouldUseFixedTextSize(subTitleOptions, sturi != null)) {
+            subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, stFontSize);
+        } else {
+            subtitleView.setUserDefaultTextSize();
+        }
     }
 
     /**
