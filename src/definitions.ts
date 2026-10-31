@@ -360,14 +360,21 @@ export interface VideoSubtitle {
  */
 export interface SubTitleOptions {
   /**
-   * Foreground color in RGBA. When omitted, Android uses `rgba(255,255,255,1)`.
-   * On iOS, omitted colors are not set by the plugin; the platform uses the
-   * viewer's caption appearance settings instead of fixed plugin defaults.
+   * Foreground color in RGBA. On Android, when the plugin applies subtitle
+   * styling, omitted values fall back to `rgba(255,255,255,1)`. When
+   * `subtitleOptions` is absent, embedded cue colors from the media can
+   * override that fallback. On iOS, omitted colors are not set by the plugin;
+   * the platform uses the viewer's caption appearance settings instead of fixed
+   * plugin defaults.
    */
   foregroundColor?: string;
   /**
-   * Background color in RGBA. When omitted, Android uses `rgba(0,0,0,1)`.
-   * On iOS, omitted colors are not set by the plugin; the platform uses the
+   * Background color in RGBA. On Android, when the plugin applies subtitle
+   * styling in fullscreen, omitted values fall back to `rgba(0,0,0,1)`. In
+   * picture-in-picture, the background is transparent when `subtitleOptions`
+   * is provided, even if this property is omitted. When `subtitleOptions` is
+   * absent, embedded cue colors from the media can override the fallback. On
+   * iOS, omitted colors are not set by the plugin; the platform uses the
    * viewer's caption appearance settings instead of fixed plugin defaults.
    */
   backgroundColor?: string;
