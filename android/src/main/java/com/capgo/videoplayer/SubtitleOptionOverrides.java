@@ -11,10 +11,14 @@ final class SubtitleOptionOverrides {
     }
 
     static boolean hasFontSize(JSONObject options) {
-        if (options == null || !options.has("fontSize")) {
+        return hasFontSize(options != null && options.has("fontSize"), options != null ? options.optDouble("fontSize", 16) : 16);
+    }
+
+    static boolean hasFontSize(boolean hasFontSizeKey, double fontSizeValue) {
+        if (!hasFontSizeKey) {
             return false;
         }
-        return Math.round(options.optDouble("fontSize", 16)) > 0;
+        return Math.round(fontSizeValue) > 0;
     }
 
     static boolean hasColor(JSONObject options) {
@@ -26,5 +30,9 @@ final class SubtitleOptionOverrides {
 
     static boolean shouldUseFixedTextSize(JSONObject options, boolean hasSidecarUri) {
         return hasFontSize(options) || hasSidecarUri;
+    }
+
+    static boolean shouldUseFixedTextSize(boolean hasFontSizeOverride, boolean hasSidecarUri) {
+        return hasFontSizeOverride || hasSidecarUri;
     }
 }
