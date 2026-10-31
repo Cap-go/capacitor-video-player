@@ -360,11 +360,15 @@ export interface VideoSubtitle {
  */
 export interface SubTitleOptions {
   /**
-   * Foreground Color in RGBA (default rgba(255,255,255,1))
+   * Foreground color in RGBA. When omitted, Android uses `rgba(255,255,255,1)`.
+   * On iOS, omitted colors are not set by the plugin; the platform uses the
+   * viewer's caption appearance settings instead of fixed plugin defaults.
    */
   foregroundColor?: string;
   /**
-   * Background Color in RGBA (default rgba(0,0,0,1))
+   * Background color in RGBA. When omitted, Android uses `rgba(0,0,0,1)`.
+   * On iOS, omitted colors are not set by the plugin; the platform uses the
+   * viewer's caption appearance settings instead of fixed plugin defaults.
    */
   backgroundColor?: string;
   /**

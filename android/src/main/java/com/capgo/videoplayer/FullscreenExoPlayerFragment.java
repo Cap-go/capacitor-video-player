@@ -992,20 +992,18 @@ public class FullscreenExoPlayerFragment extends Fragment {
     }
 
     private void applySubtitleAppearance(boolean transparentBackground) {
-        int foreground;
+        int foreground = Color.WHITE;
+        if (stForeColor.length() > 4 && stForeColor.substring(0, 4).equals("rgba")) {
+            foreground = getColorFromRGBA(stForeColor);
+        }
         int background;
-        if (!transparentBackground) {
-            foreground = Color.WHITE;
+        if (transparentBackground) {
+            background = Color.TRANSPARENT;
+        } else {
             background = Color.BLACK;
-            if (stForeColor.length() > 4 && stForeColor.substring(0, 4).equals("rgba")) {
-                foreground = getColorFromRGBA(stForeColor);
-            }
             if (stBackColor.length() > 4 && stBackColor.substring(0, 4).equals("rgba")) {
                 background = getColorFromRGBA(stBackColor);
             }
-        } else {
-            foreground = Color.TRANSPARENT;
-            background = Color.TRANSPARENT;
         }
         SubtitleView subtitleView = styledPlayerView.getSubtitleView();
         if (hasSubtitleOptionOverrides()) {

@@ -572,11 +572,11 @@ On iOS, colors and font size are applied through `AVPlayerItem` text style
 rules. That path applies to WebVTT and other timed text the platform exposes
 to those rules; some embedded legible streams may not honor these options.
 
-| Prop                  | Type                | Description                                                                                                                                                      |
-| --------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`foregroundColor`** | <code>string</code> | Foreground Color in RGBA (default rgba(255,255,255,1))                                                                                                           |
-| **`backgroundColor`** | <code>string</code> | Background Color in RGBA (default rgba(0,0,0,1))                                                                                                                 |
-| **`fontSize`**        | <code>number</code> | Font size in CSS pixels (default 16). Android applies this directly. On iOS, values map to AVFoundation relative size where 16 equals the system default (100%). |
+| Prop                  | Type                | Description                                                                                                                                                                                                                |
+| --------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`foregroundColor`** | <code>string</code> | Foreground color in RGBA. When omitted, Android uses `rgba(255,255,255,1)`. On iOS, omitted colors are not set by the plugin; the platform uses the viewer's caption appearance settings instead of fixed plugin defaults. |
+| **`backgroundColor`** | <code>string</code> | Background color in RGBA. When omitted, Android uses `rgba(0,0,0,1)`. On iOS, omitted colors are not set by the plugin; the platform uses the viewer's caption appearance settings instead of fixed plugin defaults.       |
+| **`fontSize`**        | <code>number</code> | Font size in CSS pixels (default 16). Android applies this directly. On iOS, values map to AVFoundation relative size where 16 equals the system default (100%).                                                           |
 
 
 #### DrmOptions
