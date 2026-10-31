@@ -142,12 +142,20 @@ extension VideoPlayerPlugin {
     }
 
     private static func parseChapters(from call: CAPPluginCall) -> [VideoChapter] {
-        guard let entries = call.getArray("chapters", [String: Any].self) else {
+        guard let entries = call.getArray("chapters") else {
             return []
         }
         var parsed: [VideoChapter] = []
         for (index, entry) in entries.enumerated() {
-            if let chapter = VideoChapter(dictionary: entry) {
+            guard let jsObject = entry as? JSObject else {
+                print("VideoPlayerPlugin: skipping invalid chapter at index \(index)")
+                continue
+            }
+            var dictionary: [String: Any] = [:]
+            for (key, value) in jsObject {
+                dictionary[key] = value
+            }
+            if let chapter = VideoChapter(dictionary: dictionary) {
                 parsed.append(chapter)
             } else {
                 print("VideoPlayerPlugin: skipping invalid chapter at index \(index)")
