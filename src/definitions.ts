@@ -354,9 +354,9 @@ export interface VideoSubtitle {
 /**
  * Optional styling for on-screen subtitles.
  *
- * On iOS, colors and font size are applied through `AVPlayerItem` text style
- * rules. That path applies to WebVTT and other timed text the platform exposes
- * to those rules; some embedded legible streams may not honor these options.
+ * On iOS, colors and font size are applied through `AVPlayerItem`
+ * `textStyleRules`, which Apple documents for WebVTT only. IMSC1 and other
+ * in-manifest timed text formats are not styled through this API.
  * Inline WebVTT cue styles can take precedence over equivalent
  * `subtitleOptions` values; the plugin sets text style rules as a platform
  * fallback, not a guaranteed override of authored cue styling.
@@ -382,9 +382,13 @@ export interface SubTitleOptions {
    */
   backgroundColor?: string;
   /**
-   * Font size in CSS pixels (default 16). Android applies this directly.
-   * On iOS, values map to AVFoundation relative size where 16 equals the
-   * system default (100%).
+   * Font size in CSS pixels. On Android, supplied values are rounded to the
+   * nearest integer before applying. When omitted on embedded tracks without a
+   * sidecar subtitle URI, Android uses `SubtitleView.setUserDefaultTextSize()`
+   * (the user's system caption size), not a fixed 16 px size. Sidecar subtitles
+   * still use a fixed default size when this property is omitted. On iOS,
+   * values map to AVFoundation relative size where 16 equals the system default
+   * (100%).
    */
   fontSize?: number;
 }

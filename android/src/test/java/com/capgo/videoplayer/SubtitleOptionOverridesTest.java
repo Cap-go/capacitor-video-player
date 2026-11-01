@@ -1,6 +1,8 @@
 package com.capgo.videoplayer;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -19,5 +21,12 @@ public class SubtitleOptionOverridesTest {
         assertTrue(SubtitleOptionOverrides.hasFontSize(true, 12));
         assertFalse(SubtitleOptionOverrides.hasFontSize(true, 0));
         assertFalse(SubtitleOptionOverrides.hasFontSize(false, 12));
+    }
+
+    @Test
+    public void parseRgbaColorAcceptsValidValuesAndRejectsMalformedInput() {
+        assertEquals(Integer.valueOf(0xffffffff), SubtitleOptionOverrides.parseRgbaColor("rgba(255,255,255,1)"));
+        assertNull(SubtitleOptionOverrides.parseRgbaColor("rgba(255,255,255,1"));
+        assertNull(SubtitleOptionOverrides.parseRgbaColor("not-a-color"));
     }
 }

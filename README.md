@@ -568,9 +568,9 @@ On web, the implementation returns `"web"`.
 
 Optional styling for on-screen subtitles.
 
-On iOS, colors and font size are applied through `AVPlayerItem` text style
-rules. That path applies to WebVTT and other timed text the platform exposes
-to those rules; some embedded legible streams may not honor these options.
+On iOS, colors and font size are applied through `AVPlayerItem`
+`textStyleRules`, which Apple documents for WebVTT only. IMSC1 and other
+in-manifest timed text formats are not styled through this API.
 Inline WebVTT cue styles can take precedence over equivalent
 `subtitleOptions` values; the plugin sets text style rules as a platform
 fallback, not a guaranteed override of authored cue styling.
@@ -579,7 +579,7 @@ fallback, not a guaranteed override of authored cue styling.
 | --------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`foregroundColor`** | <code>string</code> | Foreground color in RGBA. On Android, when the plugin applies subtitle styling, omitted values fall back to `rgba(255,255,255,1)`. When `subtitleOptions` is absent, embedded cue colors from the media can override that fallback. On iOS, omitted colors are not set by the plugin; the platform uses the viewer's caption appearance settings instead of fixed plugin defaults.                                                                                                                                   |
 | **`backgroundColor`** | <code>string</code> | Background color in RGBA. On Android, when the plugin applies subtitle styling in fullscreen, omitted values fall back to `rgba(0,0,0,1)`. In picture-in-picture, the background is transparent when `subtitleOptions` is provided, even if this property is omitted. When `subtitleOptions` is absent, embedded cue colors from the media can override the fallback. On iOS, omitted colors are not set by the plugin; the platform uses the viewer's caption appearance settings instead of fixed plugin defaults. |
-| **`fontSize`**        | <code>number</code> | Font size in CSS pixels (default 16). Android applies this directly. On iOS, values map to AVFoundation relative size where 16 equals the system default (100%).                                                                                                                                                                                                                                                                                                                                                     |
+| **`fontSize`**        | <code>number</code> | Font size in CSS pixels. On Android, supplied values are rounded to the nearest integer before applying. When omitted on embedded tracks without a sidecar subtitle URI, Android uses `SubtitleView.setUserDefaultTextSize()` (the user's system caption size), not a fixed 16 px size. Sidecar subtitles still use a fixed default size when this property is omitted. On iOS, values map to AVFoundation relative size where 16 equals the system default (100%).                                                  |
 
 
 #### DrmOptions

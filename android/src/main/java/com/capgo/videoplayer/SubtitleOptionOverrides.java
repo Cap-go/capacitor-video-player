@@ -1,5 +1,7 @@
 package com.capgo.videoplayer;
 
+import java.util.Arrays;
+import java.util.List;
 import org.json.JSONObject;
 
 final class SubtitleOptionOverrides {
@@ -34,5 +36,34 @@ final class SubtitleOptionOverrides {
 
     static boolean shouldUseFixedTextSize(boolean hasFontSizeOverride, boolean hasSidecarUri) {
         return hasFontSizeOverride || hasSidecarUri;
+    }
+
+    static Integer parseRgbaColor(String rgbaColor) {
+        if (rgbaColor == null || rgbaColor.length() < 5 || !rgbaColor.regionMatches(true, 0, "rgba", 0, 4)) {
+            return null;
+        }
+        int open = rgbaColor.indexOf('(');
+        int close = rgbaColor.indexOf(')');
+        if (open < 0 || close <= open) {
+            return null;
+        }
+        String inner = rgbaColor.substring(open + 1, close);
+        List<String> colors = Arrays.asList(inner.split(","));
+        if (colors.size() != 4) {
+            return null;
+        }
+        try {
+            int red = Integer.parseInt(colors.get(0).trim());
+            int green = Integer.parseInt(colors.get(1).trim());
+            int blue = Integer.parseInt(colors.get(2).trim());
+            float alpha = Float.parseFloat(colors.get(3).trim());
+            if (alpha < 0f || alpha > 1f) {
+                return null;
+            }
+            int alphaInt = Math.round(alpha * 255f) & 0xff;
+            return (alphaInt << 24) | ((red & 0xff) << 16) | ((green & 0xff) << 8) | (blue & 0xff);
+        } catch (NumberFormatException exception) {
+            return null;
+        }
     }
 }

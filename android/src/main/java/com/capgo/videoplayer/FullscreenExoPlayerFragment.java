@@ -988,31 +988,45 @@ public class FullscreenExoPlayerFragment extends Fragment {
     }
 
     private void applySubtitleAppearance(boolean transparentBackground) {
-        int foreground = Color.WHITE;
-        if (stForeColor.length() > 4 && stForeColor.substring(0, 4).equals("rgba")) {
-            foreground = getColorFromRGBA(stForeColor);
-        }
-        int background;
-        if (transparentBackground) {
-            background = Color.TRANSPARENT;
-        } else {
-            background = Color.BLACK;
-            if (stBackColor.length() > 4 && stBackColor.substring(0, 4).equals("rgba")) {
-                background = getColorFromRGBA(stBackColor);
-            }
-        }
         SubtitleView subtitleView = styledPlayerView.getSubtitleView();
-        if (SubtitleOptionOverrides.hasColor(subTitleOptions)) {
+        boolean hasSidecar = sturi != null;
+        boolean hasColorOverride = SubtitleOptionOverrides.hasColor(subTitleOptions);
+        boolean hasAnyOptions = SubtitleOptionOverrides.hasAny(subTitleOptions);
+        boolean shouldApplyCaptionStyle = hasColorOverride || hasSidecar || (transparentBackground && hasAnyOptions);
+
+        if (hasColorOverride) {
             subtitleView.setApplyEmbeddedStyles(false);
             subtitleView.setApplyEmbeddedFontSizes(false);
         } else if (SubtitleOptionOverrides.hasFontSize(subTitleOptions)) {
             subtitleView.setApplyEmbeddedStyles(true);
             subtitleView.setApplyEmbeddedFontSizes(false);
         }
-        subtitleView.setStyle(
-            new CaptionStyleCompat(foreground, background, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, Color.WHITE, null)
-        );
-        if (SubtitleOptionOverrides.shouldUseFixedTextSize(subTitleOptions, sturi != null)) {
+
+        if (shouldApplyCaptionStyle) {
+            int foreground = Color.WHITE;
+            if (hasColorOverride) {
+                Integer parsedForeground = SubtitleOptionOverrides.parseRgbaColor(stForeColor);
+                if (parsedForeground != null) {
+                    foreground = parsedForeground;
+                }
+            }
+            int background;
+            if (transparentBackground && hasAnyOptions) {
+                background = Color.TRANSPARENT;
+            } else {
+                background = Color.BLACK;
+                if (hasColorOverride) {
+                    Integer parsedBackground = SubtitleOptionOverrides.parseRgbaColor(stBackColor);
+                    if (parsedBackground != null) {
+                        background = parsedBackground;
+                    }
+                }
+            }
+            subtitleView.setStyle(
+                new CaptionStyleCompat(foreground, background, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, Color.WHITE, null)
+            );
+        }
+        if (SubtitleOptionOverrides.shouldUseFixedTextSize(subTitleOptions, hasSidecar)) {
             subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, stFontSize);
         } else {
             subtitleView.setUserDefaultTextSize();
@@ -1133,20 +1147,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (player != null) {
             outState.putInt(PLAYBACK_TIME, (int) player.getCurrentPosition());
         }
-    }
-
-    private int getColorFromRGBA(String rgbaColor) {
-        int ret = 0;
-        String color = rgbaColor.substring(rgbaColor.indexOf("(") + 1, rgbaColor.indexOf(")"));
-        List<String> colors = Arrays.asList(color.split(","));
-        if (colors.size() == 4) {
-            ret =
-                ((Math.round(Float.parseFloat(colors.get(3).trim()) * 255) & 0xff) << 24) |
-                ((Integer.parseInt(colors.get(0).trim()) & 0xff) << 16) |
-                ((Integer.parseInt(colors.get(1).trim()) & 0xff) << 8) |
-                (Integer.parseInt(colors.get(2).trim()) & 0xff);
-        }
-        return ret;
     }
 
     private MediaSource getSubTitles(MediaSource mediaSource, List<Uri> subtitleUris, DataSource.Factory dataSourceFactory) {
