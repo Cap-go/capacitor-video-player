@@ -1025,6 +1025,8 @@ public class FullscreenExoPlayerFragment extends Fragment {
             subtitleView.setStyle(
                 new CaptionStyleCompat(foreground, background, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, Color.WHITE, null)
             );
+        } else {
+            subtitleView.setUserDefaultStyle();
         }
         if (SubtitleOptionOverrides.shouldUseFixedTextSize(subTitleOptions, hasSidecar)) {
             subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, stFontSize);

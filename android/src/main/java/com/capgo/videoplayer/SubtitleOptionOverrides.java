@@ -57,7 +57,10 @@ final class SubtitleOptionOverrides {
             int green = Integer.parseInt(colors.get(1).trim());
             int blue = Integer.parseInt(colors.get(2).trim());
             float alpha = Float.parseFloat(colors.get(3).trim());
-            if (alpha < 0f || alpha > 1f) {
+            if (!Float.isFinite(alpha) || alpha < 0f || alpha > 1f) {
+                return null;
+            }
+            if (red < 0 || red > 255 || green < 0 || green > 255 || blue < 0 || blue > 255) {
                 return null;
             }
             int alphaInt = Math.round(alpha * 255f) & 0xff;
