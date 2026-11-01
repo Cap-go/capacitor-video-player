@@ -364,13 +364,17 @@ private extension VideoPlayerCastController {
         button.accessibilityLabel = "Cast"
 
         overlayView.addSubview(button)
+        let layout = VideoPlayerCastOverlayLayout.self
         NSLayoutConstraint.activate([
-            button.widthAnchor.constraint(equalToConstant: 44),
-            button.heightAnchor.constraint(equalToConstant: 44),
+            button.widthAnchor.constraint(equalToConstant: layout.controlSize),
+            button.heightAnchor.constraint(equalToConstant: layout.controlSize),
             // Position below AVPlayerViewController's top row of controls (Done/X and route picker)
             // using trailing to stay away from the leading-side dismiss button.
-            button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 60),
-            button.trailingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.trailingAnchor, constant: -16)
+            button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: layout.topRowOffset),
+            button.trailingAnchor.constraint(
+                equalTo: overlayView.safeAreaLayoutGuide.trailingAnchor,
+                constant: -layout.trailingInset
+            )
         ])
 
         castButton = button

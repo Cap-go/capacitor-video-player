@@ -321,11 +321,18 @@ class FullscreenVideoPlayer: NSObject {
                 button.addTarget(self, action: #selector(showChapterActionSheet), for: .touchUpInside)
             }
             overlayView.addSubview(button)
+            let layout = VideoPlayerCastOverlayLayout.self
             NSLayoutConstraint.activate([
-                button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 60),
-                button.trailingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-                button.widthAnchor.constraint(equalToConstant: 44),
-                button.heightAnchor.constraint(equalToConstant: 44)
+                button.topAnchor.constraint(
+                    equalTo: overlayView.safeAreaLayoutGuide.topAnchor,
+                    constant: layout.chapterButtonTopOffset(chromecastEnabled: chromecast)
+                ),
+                button.trailingAnchor.constraint(
+                    equalTo: overlayView.safeAreaLayoutGuide.trailingAnchor,
+                    constant: -layout.trailingInset
+                ),
+                button.widthAnchor.constraint(equalToConstant: layout.controlSize),
+                button.heightAnchor.constraint(equalToConstant: layout.controlSize)
             ])
             chapterButton = button
         }

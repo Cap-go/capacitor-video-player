@@ -221,7 +221,20 @@ enum VideoPlayerCastSeekSync {
 }
 
 enum VideoPlayerCastOverlayLayout {
+    static let topRowOffset: CGFloat = 60
+    static let trailingInset: CGFloat = 16
+    static let controlSize: CGFloat = 44
+    static let verticalStackSpacing: CGFloat = 8
+
     static func overlayView(for playerViewController: AVPlayerViewController) -> UIView? {
         playerViewController.contentOverlayView
+    }
+
+    /// Cast uses the top trailing slot; chapter stacks below when Cast overlay is enabled.
+    static func chapterButtonTopOffset(chromecastEnabled: Bool) -> CGFloat {
+        guard chromecastEnabled else {
+            return topRowOffset
+        }
+        return topRowOffset + controlSize + verticalStackSpacing
     }
 }
