@@ -13,6 +13,9 @@ struct VideoChapter {
 
         let startTime: TimeInterval
         if let number = dictionary["startTime"] as? NSNumber {
+            if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                return nil
+            }
             startTime = number.doubleValue
         } else if let value = dictionary["startTime"] as? Double {
             startTime = value
@@ -20,7 +23,7 @@ struct VideoChapter {
             return nil
         }
 
-        if !startTime.isFinite || startTime < 0 || startTime > Double(Int.max) {
+        if !startTime.isFinite || startTime < 0 || startTime >= Double(Int.max) {
             return nil
         }
 

@@ -44,6 +44,8 @@ class FullscreenVideoPlayer: NSObject {
     private var subtitleTracks: [VideoSubtitleTrack] = []
     private var chapters: [VideoChapter] = []
     private var chapterButton: UIButton?
+    private let controlsVisibilityObserver = AVPlayerControlsVisibilityObserver()
+    private var arePlaybackControlsVisible = true
     private var hlsResourceLoader: HLSSubtitleResourceLoader?
     private var subtitleButton: UIButton?
     private var subtitleSelectionObserver: NSObjectProtocol?
@@ -239,6 +241,12 @@ class FullscreenVideoPlayer: NSObject {
         }
         playerVC.adaptivePresentationDelegate = self
         playerViewController = playerVC
+        if showControls {
+            controlsVisibilityObserver.start(observing: playerVC) { [weak self] visible in
+                self?.arePlaybackControlsVisible = visible
+                self?.applyChapterButtonControlsVisibility()
+            }
+        }
 
         setupChromecast()
         setupObservers()
@@ -341,6 +349,12 @@ class FullscreenVideoPlayer: NSObject {
             chapterButton?.menu = buildChapterMenu()
         }
         chapterButton?.accessibilityLabel = "Chapters"
+        applyChapterButtonControlsVisibility()
+    }
+
+    private func applyChapterButtonControlsVisibility() {
+        chapterButton?.isHidden = !arePlaybackControlsVisible
+        chapterButton?.alpha = arePlaybackControlsVisible ? 1 : 0
     }
 
     @available(iOS 14.0, *)
@@ -375,12 +389,12 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func seekToChapter(_ chapter: VideoChapter) {
-        if castController?.isCasting == true {
-            setCurrentTime(chapter.startTime)
-        } else {
-            let target = CMTime(seconds: chapter.startTime, preferredTimescale: 600)
-            player?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+        if castController?.setCurrentTime(chapter.startTime) == true {
+            play()
+            return
         }
+        let target = CMTime(seconds: chapter.startTime, preferredTimescale: 600)
+        player?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
         play()
     }
 
@@ -398,7 +412,9 @@ class FullscreenVideoPlayer: NSObject {
             return "0:00"
         }
         let clamped = min(max(0, seconds), Double(Int.max))
-        let totalSeconds = Int(clamped.rounded())
+        guard let totalSeconds = Int(exactly: clamped.rounded()) else {
+            return "0:00"
+        }
         let hours = totalSeconds / 3600
         let minutes = (totalSeconds % 3600) / 60
         let secs = totalSeconds % 60
@@ -893,6 +909,7 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func cleanup(stopRemoteMedia: Bool = false) {
+        controlsVisibilityObserver.stop()
         nonHlsBootstrapLoadId = nil
         castController?.detach(stopRemoteMedia: stopRemoteMedia)
         castController = nil

@@ -1001,7 +1001,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         }
 
         new AlertDialog.Builder(requireActivity())
-            .setTitle("Chapters")
+            .setTitle(R.string.chapters)
             .setItems(labels, (dialog, which) -> seekToChapter(chapters.get(which)))
             .show();
     }

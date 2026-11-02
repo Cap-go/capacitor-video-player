@@ -122,7 +122,7 @@
           android:background="?actionBarItemBackground"
           android:src="@drawable/ic_chapters_white"
           android:visibility="gone"
-          android:contentDescription="Chapters button"/>
+          android:contentDescription="@string/chapters_button"/>
 
         <ImageButton
           android:id="@+id/exo_pip"
