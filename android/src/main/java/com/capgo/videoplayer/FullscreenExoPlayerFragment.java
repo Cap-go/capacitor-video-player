@@ -1011,7 +1011,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 }
             }
             int background;
-            if (transparentBackground && hasAnyOptions) {
+            if (transparentBackground && !hasColorOverride) {
                 background = Color.TRANSPARENT;
             } else {
                 background = Color.BLACK;

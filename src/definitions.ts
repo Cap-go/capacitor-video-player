@@ -374,11 +374,15 @@ export interface SubTitleOptions {
   /**
    * Background color in RGBA. On Android, when the plugin applies subtitle
    * styling in fullscreen, omitted values fall back to `rgba(0,0,0,1)`. In
-   * picture-in-picture, the background is transparent when `subtitleOptions`
-   * is provided, even if this property is omitted. When `subtitleOptions` is
-   * absent, embedded cue colors from the media can override the fallback. On
-   * iOS, omitted colors are not set by the plugin; the platform uses the
-   * viewer's caption appearance settings instead of fixed plugin defaults.
+   * picture-in-picture, omitted values fall back to transparent when the plugin
+   * applies its caption style (for example sidecar subtitles or non-empty
+   * `subtitleOptions` that include a color override). An empty
+   * `subtitleOptions` object alone does not select that fallback. With
+   * font-size-only options, embedded cue styles stay enabled, so authored cue
+   * backgrounds can remain visible in PiP. When `subtitleOptions` is absent,
+   * embedded cue colors from the media can override the fallback. On iOS,
+   * omitted colors are not set by the plugin; the platform uses the viewer's
+   * caption appearance settings instead of fixed plugin defaults.
    */
   backgroundColor?: string;
   /**
