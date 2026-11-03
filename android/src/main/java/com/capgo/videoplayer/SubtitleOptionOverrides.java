@@ -30,6 +30,10 @@ final class SubtitleOptionOverrides {
         return options.has("foregroundColor") || options.has("backgroundColor");
     }
 
+    static boolean hasBackgroundColor(JSONObject options) {
+        return options != null && options.has("backgroundColor");
+    }
+
     static boolean shouldUseFixedTextSize(JSONObject options, boolean hasSidecarUri) {
         return hasFontSize(options) || hasSidecarUri;
     }

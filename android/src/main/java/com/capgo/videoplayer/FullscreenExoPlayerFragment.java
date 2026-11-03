@@ -991,6 +991,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         SubtitleView subtitleView = styledPlayerView.getSubtitleView();
         boolean hasSidecar = sturi != null;
         boolean hasColorOverride = SubtitleOptionOverrides.hasColor(subTitleOptions);
+        boolean hasBackgroundColorOverride = SubtitleOptionOverrides.hasBackgroundColor(subTitleOptions);
         boolean hasAnyOptions = SubtitleOptionOverrides.hasAny(subTitleOptions);
         boolean shouldApplyCaptionStyle = hasColorOverride || hasSidecar || (transparentBackground && hasAnyOptions);
 
@@ -1011,11 +1012,11 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 }
             }
             int background;
-            if (transparentBackground && !hasColorOverride) {
+            if (transparentBackground && !hasBackgroundColorOverride) {
                 background = Color.TRANSPARENT;
             } else {
                 background = Color.BLACK;
-                if (hasColorOverride) {
+                if (hasBackgroundColorOverride) {
                     Integer parsedBackground = SubtitleOptionOverrides.parseRgbaColor(stBackColor);
                     if (parsedBackground != null) {
                         background = parsedBackground;

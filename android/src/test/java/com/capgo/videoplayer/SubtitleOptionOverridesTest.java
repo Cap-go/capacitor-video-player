@@ -21,6 +21,9 @@ public class SubtitleOptionOverridesTest {
         assertTrue(SubtitleOptionOverrides.hasFontSize(true, 12));
         assertFalse(SubtitleOptionOverrides.hasFontSize(true, 0));
         assertFalse(SubtitleOptionOverrides.hasFontSize(false, 12));
+        assertTrue(SubtitleOptionOverrides.hasColor(new org.json.JSONObject("{\"foregroundColor\":\"rgba(1,2,3,1)\"}")));
+        assertFalse(SubtitleOptionOverrides.hasBackgroundColor(new org.json.JSONObject("{\"foregroundColor\":\"rgba(1,2,3,1)\"}")));
+        assertTrue(SubtitleOptionOverrides.hasBackgroundColor(new org.json.JSONObject("{\"backgroundColor\":\"rgba(0,0,0,1)\"}")));
     }
 
     @Test
