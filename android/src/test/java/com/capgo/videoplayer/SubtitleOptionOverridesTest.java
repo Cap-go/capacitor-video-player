@@ -17,7 +17,7 @@ public class SubtitleOptionOverridesTest {
     }
 
     @Test
-    public void detectsFontSizeAndColorKeys() {
+    public void detectsFontSizeAndColorKeys() throws Exception {
         assertTrue(SubtitleOptionOverrides.hasFontSize(true, 12));
         assertFalse(SubtitleOptionOverrides.hasFontSize(true, 0));
         assertFalse(SubtitleOptionOverrides.hasFontSize(false, 12));
