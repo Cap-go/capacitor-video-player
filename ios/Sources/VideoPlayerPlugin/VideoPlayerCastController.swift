@@ -29,7 +29,12 @@ final class VideoPlayerCastController: NSObject {
     private weak var observedRemoteMediaClient: GCKRemoteMediaClient?
     private var mediaLoadRequest: GCKRequest?
     private var pendingCastCommands: [PendingCastCommand] = []
-    private var isLoadedOnCast = false
+    private var isLoadedOnCast = false {
+        didSet {
+            guard oldValue != isLoadedOnCast else { return }
+            onCastingStateChange?()
+        }
+    }
     private var isLoadingOnCast = false
     private var localWasPlaying = false
     private var isDetached = false
@@ -38,6 +43,7 @@ final class VideoPlayerCastController: NSObject {
     private var onPlay: (() -> Void)?
     private var onPause: (() -> Void)?
     private var onEnd: (() -> Void)?
+    private var onCastingStateChange: (() -> Void)?
     private let controlsVisibilityObserver = AVPlayerControlsVisibilityObserver()
     private var localSeekTimeObserver: Any?
     private var timeJumpObserver: NSObjectProtocol?
@@ -274,6 +280,10 @@ final class VideoPlayerCastController: NSObject {
 
     func setOnEnd(_ callback: @escaping () -> Void) {
         onEnd = callback
+    }
+
+    func setOnCastingStateChange(_ callback: @escaping () -> Void) {
+        onCastingStateChange = callback
     }
 }
 
@@ -932,6 +942,10 @@ final class VideoPlayerCastController {
         _ = callback
     }
     func setOnEnd(_ callback: @escaping () -> Void) {
+        _ = callback
+    }
+
+    func setOnCastingStateChange(_ callback: @escaping () -> Void) {
         _ = callback
     }
 }

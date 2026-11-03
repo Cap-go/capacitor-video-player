@@ -792,6 +792,9 @@ class FullscreenVideoPlayer: NSObject {
         castController?.setOnEnd { [weak self] in
             self?.handlePlaybackEnded()
         }
+        castController?.setOnCastingStateChange { [weak self] in
+            self?.refreshChapterButton()
+        }
         castController?.attach(to: playerViewController, player: player)
     }
 

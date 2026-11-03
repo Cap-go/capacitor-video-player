@@ -1217,8 +1217,12 @@ public class VideoPlayerPlugin extends Plugin {
                 Log.w(TAG, "Skipping malformed chapter entry at index " + i);
                 continue;
             }
-            String chapterTitle = entry.optString("title", "");
-            if (chapterTitle == null || chapterTitle.trim().isEmpty()) {
+            Object rawTitle = entry.opt("title");
+            if (!(rawTitle instanceof String)) {
+                continue;
+            }
+            String chapterTitle = (String) rawTitle;
+            if (chapterTitle.trim().isEmpty()) {
                 continue;
             }
             if (!entry.has("startTime")) {

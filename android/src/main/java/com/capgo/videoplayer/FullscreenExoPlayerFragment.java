@@ -982,16 +982,26 @@ public class FullscreenExoPlayerFragment extends Fragment {
         NotificationCenter.defaultCenter().postNotification("initializePlayer", info);
     }
 
+    private boolean isActivePlayerReady() {
+        if (isCastSession) {
+            return castPlayer != null && castPlayer.getPlaybackState() == Player.STATE_READY;
+        }
+        return playerReady;
+    }
+
     private void updateChaptersButtonVisibility() {
         if (chaptersBtn == null) {
             return;
         }
-        boolean visible = chapters != null && !chapters.isEmpty() && playerReady && showControls;
+        boolean visible = chapters != null && !chapters.isEmpty() && isActivePlayerReady() && showControls;
         chaptersBtn.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     private void showChapterPicker() {
-        if (chapters == null || chapters.isEmpty() || player == null) {
+        if (chapters == null || chapters.isEmpty()) {
+            return;
+        }
+        if (player == null && !(isCastSession && castPlayer != null)) {
             return;
         }
 
@@ -1633,6 +1643,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                                     };
                                     switch (state) {
                                         case CastPlayer.STATE_READY:
+                                            updateChaptersButtonVisibility();
                                             if (castPlayer.isPlaying()) {
                                                 NotificationCenter.defaultCenter().postNotification("playerItemPlay", info);
                                             } else {
