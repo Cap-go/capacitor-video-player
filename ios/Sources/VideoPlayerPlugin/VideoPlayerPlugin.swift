@@ -86,6 +86,7 @@ extension VideoPlayerPlugin {
         let audioCategory = call.getString("audioCategory")
         let subtitleTracks = Self.parseSubtitleTracks(from: call)
         let subtitleStyleOptions = Self.parseSubtitleStyleOptions(from: call)
+        let chapters = Self.parseChapters(from: call)
         let drmOptions = Self.parseDrmOptions(from: call)
 
         // Create video player
@@ -105,6 +106,7 @@ extension VideoPlayerPlugin {
             artwork: artwork,
             subtitleTracks: subtitleTracks,
             subtitleStyleOptions: subtitleStyleOptions,
+            chapters: chapters,
             fairplayCertificateUrl: drmOptions.fairplayCertificateUrl,
             fairplayContentKeySpcUrl: drmOptions.fairplayContentKeySpcUrl,
             fairplayAssetId: drmOptions.fairplayAssetId,
@@ -158,6 +160,29 @@ extension VideoPlayerPlugin {
             backgroundColor: options["backgroundColor"] as? String,
             fontSize: fontSize
         )
+    }
+
+    private static func parseChapters(from call: CAPPluginCall) -> [VideoChapter] {
+        guard let entries = call.getArray("chapters") else {
+            return []
+        }
+        var parsed: [VideoChapter] = []
+        for (index, entry) in entries.enumerated() {
+            guard let jsObject = entry as? JSObject else {
+                print("VideoPlayerPlugin: skipping invalid chapter at index \(index)")
+                continue
+            }
+            var dictionary: [String: Any] = [:]
+            for (key, value) in jsObject {
+                dictionary[key] = value
+            }
+            if let chapter = VideoChapter(dictionary: dictionary) {
+                parsed.append(chapter)
+            } else {
+                print("VideoPlayerPlugin: skipping invalid chapter at index \(index)")
+            }
+        }
+        return parsed.sorted { $0.startTime < $1.startTime }
     }
 
     private static func parseSubtitleTracks(from call: CAPPluginCall) -> [VideoSubtitleTrack] {
