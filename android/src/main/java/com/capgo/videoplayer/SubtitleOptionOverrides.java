@@ -27,11 +27,19 @@ final class SubtitleOptionOverrides {
         if (options == null) {
             return false;
         }
-        return options.has("foregroundColor") || options.has("backgroundColor");
+        return hasColor(options.has("foregroundColor"), options.has("backgroundColor"));
+    }
+
+    static boolean hasColor(boolean hasForegroundColor, boolean hasBackgroundColor) {
+        return hasForegroundColor || hasBackgroundColor;
     }
 
     static boolean hasBackgroundColor(JSONObject options) {
-        return options != null && options.has("backgroundColor");
+        return options != null && hasBackgroundColor(options.has("backgroundColor"));
+    }
+
+    static boolean hasBackgroundColor(boolean hasBackgroundColorKey) {
+        return hasBackgroundColorKey;
     }
 
     static boolean shouldUseFixedTextSize(JSONObject options, boolean hasSidecarUri) {

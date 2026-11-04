@@ -5,7 +5,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import org.json.JSONObject;
 import org.junit.Test;
 
 public class SubtitleOptionOverridesTest {
@@ -18,17 +17,15 @@ public class SubtitleOptionOverridesTest {
     }
 
     @Test
-    public void detectsFontSizeAndColorKeys() throws Exception {
+    public void detectsFontSizeAndColorKeys() {
         assertTrue(SubtitleOptionOverrides.hasFontSize(true, 12));
         assertFalse(SubtitleOptionOverrides.hasFontSize(true, 0));
         assertFalse(SubtitleOptionOverrides.hasFontSize(false, 12));
-        JSONObject foregroundOnly = new JSONObject();
-        foregroundOnly.put("foregroundColor", "rgba(1,2,3,1)");
-        assertTrue(SubtitleOptionOverrides.hasColor(foregroundOnly));
-        assertFalse(SubtitleOptionOverrides.hasBackgroundColor(foregroundOnly));
-        JSONObject withBackground = new JSONObject();
-        withBackground.put("backgroundColor", "rgba(0,0,0,1)");
-        assertTrue(SubtitleOptionOverrides.hasBackgroundColor(withBackground));
+        assertTrue(SubtitleOptionOverrides.hasColor(true, false));
+        assertFalse(SubtitleOptionOverrides.hasColor(false, false));
+        assertTrue(SubtitleOptionOverrides.hasColor(false, true));
+        assertFalse(SubtitleOptionOverrides.hasBackgroundColor(false));
+        assertTrue(SubtitleOptionOverrides.hasBackgroundColor(true));
     }
 
     @Test
