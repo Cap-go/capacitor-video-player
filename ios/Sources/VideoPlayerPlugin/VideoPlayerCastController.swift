@@ -29,7 +29,12 @@ final class VideoPlayerCastController: NSObject {
     private weak var observedRemoteMediaClient: GCKRemoteMediaClient?
     private var mediaLoadRequest: GCKRequest?
     private var pendingCastCommands: [PendingCastCommand] = []
-    private var isLoadedOnCast = false
+    private var isLoadedOnCast = false {
+        didSet {
+            guard oldValue != isLoadedOnCast else { return }
+            onCastingStateChange?()
+        }
+    }
     private var isLoadingOnCast = false
     private var localWasPlaying = false
     private var isDetached = false
@@ -38,6 +43,7 @@ final class VideoPlayerCastController: NSObject {
     private var onPlay: (() -> Void)?
     private var onPause: (() -> Void)?
     private var onEnd: (() -> Void)?
+    private var onCastingStateChange: (() -> Void)?
     private let controlsVisibilityObserver = AVPlayerControlsVisibilityObserver()
     private var localSeekTimeObserver: Any?
     private var timeJumpObserver: NSObjectProtocol?
@@ -275,6 +281,10 @@ final class VideoPlayerCastController: NSObject {
     func setOnEnd(_ callback: @escaping () -> Void) {
         onEnd = callback
     }
+
+    func setOnCastingStateChange(_ callback: @escaping () -> Void) {
+        onCastingStateChange = callback
+    }
 }
 
 private extension VideoPlayerCastController {
@@ -364,13 +374,17 @@ private extension VideoPlayerCastController {
         button.accessibilityLabel = "Cast"
 
         overlayView.addSubview(button)
+        let layout = VideoPlayerCastOverlayLayout.self
         NSLayoutConstraint.activate([
-            button.widthAnchor.constraint(equalToConstant: 44),
-            button.heightAnchor.constraint(equalToConstant: 44),
+            button.widthAnchor.constraint(equalToConstant: layout.controlSize),
+            button.heightAnchor.constraint(equalToConstant: layout.controlSize),
             // Position below AVPlayerViewController's top row of controls (Done/X and route picker)
             // using trailing to stay away from the leading-side dismiss button.
-            button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: 60),
-            button.trailingAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.trailingAnchor, constant: -16)
+            button.topAnchor.constraint(equalTo: overlayView.safeAreaLayoutGuide.topAnchor, constant: layout.topRowOffset),
+            button.trailingAnchor.constraint(
+                equalTo: overlayView.safeAreaLayoutGuide.trailingAnchor,
+                constant: -layout.trailingInset
+            )
         ])
 
         castButton = button
@@ -928,6 +942,10 @@ final class VideoPlayerCastController {
         _ = callback
     }
     func setOnEnd(_ callback: @escaping () -> Void) {
+        _ = callback
+    }
+
+    func setOnCastingStateChange(_ callback: @escaping () -> Void) {
         _ = callback
     }
 }
