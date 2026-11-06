@@ -13,6 +13,7 @@ class FullscreenVideoPlayer: NSObject {
     private var exitOnEnd: Bool
     private var loopOnEnd: Bool
     private var pipEnabled: Bool
+    private var bkmodeEnabled: Bool
     private var showControls: Bool
     private var chromecast: Bool
     private var chromecastUrl: String?
@@ -21,7 +22,8 @@ class FullscreenVideoPlayer: NSObject {
     private var artwork: String?
     private var rate: Float
     private var audioCategory: String?
-    private var didActivateAudioSession: Bool = false
+    private let audioSessionRegistrationId = UUID()
+    private var holdsSharedAudioSession = false
     private var didEmitReady: Bool = false
     private var exitEmission = ExitEmissionGuard()
     private var isTransitioningToPictureInPicture = false
@@ -40,6 +42,11 @@ class FullscreenVideoPlayer: NSObject {
     private var castController: VideoPlayerCastController?
     private weak var presentingViewController: UIViewController?
     private var subtitleTracks: [VideoSubtitleTrack] = []
+    private var subtitleStyleOptions: SubtitleStyleOptions?
+    private var chapters: [VideoChapter] = []
+    private var chapterButton: UIButton?
+    private let controlsVisibilityObserver = AVPlayerControlsVisibilityObserver()
+    private var arePlaybackControlsVisible = true
     private var hlsResourceLoader: HLSSubtitleResourceLoader?
     private var subtitleButton: UIButton?
     private var subtitleSelectionObserver: NSObjectProtocol?
@@ -54,6 +61,7 @@ class FullscreenVideoPlayer: NSObject {
         exitOnEnd: Bool,
         loopOnEnd: Bool,
         pipEnabled: Bool,
+        bkmodeEnabled: Bool = true,
         showControls: Bool,
         chromecast: Bool,
         chromecastUrl: String? = nil,
@@ -61,6 +69,8 @@ class FullscreenVideoPlayer: NSObject {
         smallTitle: String? = nil,
         artwork: String? = nil,
         subtitleTracks: [VideoSubtitleTrack] = [],
+        subtitleStyleOptions: SubtitleStyleOptions? = nil,
+        chapters: [VideoChapter] = [],
         fairplayCertificateUrl: String? = nil,
         fairplayContentKeySpcUrl: String? = nil,
         fairplayAssetId: String? = nil,
@@ -73,6 +83,7 @@ class FullscreenVideoPlayer: NSObject {
         self.exitOnEnd = exitOnEnd
         self.loopOnEnd = loopOnEnd
         self.pipEnabled = pipEnabled
+        self.bkmodeEnabled = bkmodeEnabled
         self.showControls = showControls
         self.chromecast = chromecast
         self.chromecastUrl = chromecastUrl
@@ -80,6 +91,8 @@ class FullscreenVideoPlayer: NSObject {
         self.smallTitle = smallTitle
         self.artwork = artwork
         self.subtitleTracks = subtitleTracks
+        self.subtitleStyleOptions = subtitleStyleOptions
+        self.chapters = chapters
         self.fairplayCertificateUrl = fairplayCertificateUrl
         self.fairplayContentKeySpcUrl = fairplayContentKeySpcUrl
         self.fairplayAssetId = fairplayAssetId
@@ -213,6 +226,7 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func configurePlayer(with item: AVPlayerItem) {
+        applySubtitleStyle(to: item)
         playerItem = item
         player = AVPlayer(playerItem: playerItem)
         player?.rate = rate
@@ -231,10 +245,68 @@ class FullscreenVideoPlayer: NSObject {
         }
         playerVC.adaptivePresentationDelegate = self
         playerViewController = playerVC
+        if showControls {
+            controlsVisibilityObserver.start(observing: playerVC) { [weak self] visible in
+                self?.arePlaybackControlsVisible = visible
+                self?.applyChapterButtonControlsVisibility()
+            }
+        }
 
         setupChromecast()
         setupObservers()
         setupSubtitleSelectionObserver()
+    }
+
+    private func applySubtitleStyle(to item: AVPlayerItem) {
+        guard let subtitleStyleOptions else { return }
+
+        var attributes: [String: Any] = [:]
+        if let fontSize = subtitleStyleOptions.fontSize, fontSize.isFinite, fontSize > 0 {
+            let percent = fontSize / 16.0 * 100.0
+            attributes[kCMTextMarkupAttribute_RelativeFontSize as String] = NSNumber(value: percent)
+        }
+        if let foregroundColor = subtitleStyleOptions.foregroundColor,
+           let colorComponents = Self.parseRGBAComponents(foregroundColor) {
+            attributes[kCMTextMarkupAttribute_ForegroundColorARGB as String] = colorComponents
+        }
+        if let backgroundColor = subtitleStyleOptions.backgroundColor,
+           let colorComponents = Self.parseRGBAComponents(backgroundColor) {
+            attributes[kCMTextMarkupAttribute_BackgroundColorARGB as String] = colorComponents
+        }
+
+        guard !attributes.isEmpty,
+              let rule = AVTextStyleRule(textMarkupAttributes: attributes as [String: Any]) else {
+            return
+        }
+        item.textStyleRules = [rule]
+    }
+
+    private static func parseRGBAComponents(_ value: String) -> [NSNumber]? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard trimmed.hasPrefix("rgba("), trimmed.hasSuffix(")") else {
+            return nil
+        }
+
+        let inner = trimmed.dropFirst(5).dropLast()
+        let parts = inner.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard parts.count == 4,
+              let red = Double(parts[0]), red.isFinite,
+              let green = Double(parts[1]), green.isFinite,
+              let blue = Double(parts[2]), blue.isFinite,
+              let alpha = Double(parts[3]), alpha.isFinite,
+              (0...255).contains(red),
+              (0...255).contains(green),
+              (0...255).contains(blue),
+              (0...1).contains(alpha) else {
+            return nil
+        }
+
+        return [
+            NSNumber(value: alpha),
+            NSNumber(value: red / 255.0),
+            NSNumber(value: green / 255.0),
+            NSNumber(value: blue / 255.0)
+        ]
     }
 
     private func setupSubtitleSelectionObserver() {
@@ -268,6 +340,144 @@ class FullscreenVideoPlayer: NSObject {
 
     private func shouldShowNonHlsSubtitleButton() -> Bool {
         return nonHlsSubtitleModeEnabled && validNonHlsSubtitleTracks.count > 1 && shouldShowCustomSubtitleButton()
+    }
+
+    private func shouldShowChapterButton() -> Bool {
+        guard showControls && !chapters.isEmpty else { return false }
+        if castController?.isCasting == true {
+            return true
+        }
+        return playerItem?.status == .readyToPlay
+    }
+
+    private func refreshChapterButton() {
+        DispatchQueue.main.async { [weak self] in
+            self?.installOrUpdateChapterButtonIfNeeded()
+        }
+    }
+
+    private func installOrUpdateChapterButtonIfNeeded() {
+        guard shouldShowChapterButton(),
+              let playerVC = playerViewController else {
+            chapterButton?.removeFromSuperview()
+            chapterButton = nil
+            return
+        }
+
+        if chapterButton == nil {
+            guard let overlayView = playerVC.contentOverlayView else {
+                return
+            }
+            let button = UIButton(type: .system)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            if #available(iOS 13.0, *) {
+                button.setImage(UIImage(systemName: "list.bullet"), for: .normal)
+            } else {
+                button.setTitle("Ch", for: .normal)
+            }
+            button.tintColor = .white
+            button.backgroundColor = UIColor.black.withAlphaComponent(0.45)
+            button.layer.cornerRadius = 22
+            button.clipsToBounds = true
+            if #available(iOS 14.0, *) {
+                button.showsMenuAsPrimaryAction = true
+            } else {
+                button.addTarget(self, action: #selector(showChapterActionSheet), for: .touchUpInside)
+            }
+            overlayView.addSubview(button)
+            let layout = VideoPlayerCastOverlayLayout.self
+            NSLayoutConstraint.activate([
+                button.topAnchor.constraint(
+                    equalTo: overlayView.safeAreaLayoutGuide.topAnchor,
+                    constant: layout.chapterButtonTopOffset(chromecastEnabled: chromecast)
+                ),
+                button.trailingAnchor.constraint(
+                    equalTo: overlayView.safeAreaLayoutGuide.trailingAnchor,
+                    constant: -layout.trailingInset
+                ),
+                button.widthAnchor.constraint(equalToConstant: layout.controlSize),
+                button.heightAnchor.constraint(equalToConstant: layout.controlSize)
+            ])
+            chapterButton = button
+        }
+
+        if #available(iOS 14.0, *) {
+            chapterButton?.menu = buildChapterMenu()
+        }
+        chapterButton?.accessibilityLabel = "Chapters"
+        applyChapterButtonControlsVisibility()
+    }
+
+    private func applyChapterButtonControlsVisibility() {
+        chapterButton?.isHidden = !arePlaybackControlsVisible
+        chapterButton?.alpha = arePlaybackControlsVisible ? 1 : 0
+    }
+
+    @available(iOS 14.0, *)
+    private func buildChapterMenu() -> UIMenu {
+        let actions = chapters.map { chapter in
+            UIAction(title: Self.chapterDisplayName(chapter)) { [weak self] _ in
+                self?.seekToChapter(chapter)
+            }
+        }
+        return UIMenu(title: "Chapters", children: actions)
+    }
+
+    @objc
+    private func showChapterActionSheet() {
+        guard let playerVC = playerViewController, !chapters.isEmpty else {
+            return
+        }
+
+        let sheet = UIAlertController(title: "Chapters", message: nil, preferredStyle: .actionSheet)
+        for chapter in chapters {
+            sheet.addAction(UIAlertAction(title: Self.chapterDisplayName(chapter), style: .default) { [weak self] _ in
+                self?.seekToChapter(chapter)
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = sheet.popoverPresentationController,
+           let chapterButton {
+            popover.sourceView = chapterButton
+            popover.sourceRect = chapterButton.bounds
+        }
+        playerVC.present(sheet, animated: true)
+    }
+
+    private func seekToChapter(_ chapter: VideoChapter) {
+        if castController?.setCurrentTime(chapter.startTime) == true {
+            play()
+            return
+        }
+        let target = CMTime(seconds: chapter.startTime, preferredTimescale: 600)
+        player?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+        play()
+    }
+
+    private static func chapterDisplayName(_ chapter: VideoChapter) -> String {
+        let timeLabel = formatChapterTime(chapter.startTime)
+        let title = chapter.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if title.isEmpty {
+            return timeLabel
+        }
+        return "\(title) (\(timeLabel))"
+    }
+
+    private static func formatChapterTime(_ seconds: TimeInterval) -> String {
+        guard seconds.isFinite else {
+            return "0:00"
+        }
+        let clamped = min(max(0, seconds), Double(Int.max))
+        guard let totalSeconds = Int(exactly: clamped.rounded()) else {
+            return "0:00"
+        }
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        }
+        return String(format: "%d:%02d", minutes, secs)
     }
 
     private func refreshSubtitleButton() {
@@ -571,6 +781,7 @@ class FullscreenVideoPlayer: NSObject {
 
         let oldItem = playerItem
         removePlayerItemObservers(oldItem)
+        applySubtitleStyle(to: newItem)
         playerItem = newItem
         player.replaceCurrentItem(with: newItem)
         addPlayerItemObservers(newItem)
@@ -638,6 +849,9 @@ class FullscreenVideoPlayer: NSObject {
         castController?.setOnEnd { [weak self] in
             self?.handlePlaybackEnded()
         }
+        castController?.setOnCastingStateChange { [weak self] in
+            self?.refreshChapterButton()
+        }
         castController?.attach(to: playerViewController, player: player)
     }
 
@@ -663,6 +877,7 @@ class FullscreenVideoPlayer: NSObject {
             if let item = object as? AVPlayerItem {
                 if item.status == .readyToPlay {
                     refreshSubtitleButton()
+                    refreshChapterButton()
                     emitReadyIfNeeded()
                 }
             }
@@ -706,6 +921,7 @@ class FullscreenVideoPlayer: NSObject {
         presentingViewController = viewController
         viewController.present(playerVC, animated: true) {
             self.refreshSubtitleButton()
+            self.refreshChapterButton()
             self.castController?.installOverlayIfNeeded()
             self.play()
             completion()
@@ -753,6 +969,7 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func cleanup(stopRemoteMedia: Bool = false) {
+        controlsVisibilityObserver.stop()
         nonHlsBootstrapLoadId = nil
         castController?.detach(stopRemoteMedia: stopRemoteMedia)
         castController = nil
@@ -762,6 +979,8 @@ class FullscreenVideoPlayer: NSObject {
         }
         subtitleButton?.removeFromSuperview()
         subtitleButton = nil
+        chapterButton?.removeFromSuperview()
+        chapterButton = nil
         contentKeySession?.setDelegate(nil, queue: nil)
         contentKeySession = nil
         hlsResourceLoader = nil
@@ -780,45 +999,36 @@ class FullscreenVideoPlayer: NSObject {
     }
 
     private func configureAudioSession() {
-        guard let audioCategory else { return }
-
-        let session = AVAudioSession.sharedInstance()
         do {
-            switch audioCategory {
-            case "ambient":
-                try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
-            case "playback":
-                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            case "moviePlayback":
-                if #available(iOS 13.0, *) {
-                    try session.setCategory(
-                        .playback,
-                        mode: .moviePlayback,
-                        policy: .longFormVideo,
-                        options: [.mixWithOthers]
-                    )
-                } else {
-                    try session.setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
-                }
-            default:
-                return
-            }
-
-            try session.setActive(true)
-            didActivateAudioSession = true
+            try VideoPlayerAudioSessionCoordinator.acquire(
+                registrationId: audioSessionRegistrationId,
+                needs: currentAudioSessionNeeds()
+            )
+            holdsSharedAudioSession = true
         } catch {
+            holdsSharedAudioSession = false
             print("Error configuring AVAudioSession: \(error)")
         }
     }
 
-    private func deactivateAudioSessionIfNeeded() {
-        guard didActivateAudioSession else { return }
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
-            didActivateAudioSession = false
-        } catch {
-            print("Error deactivating AVAudioSession: \(error)")
+    private func currentAudioSessionNeeds() -> VideoPlayerAudioSessionNeeds {
+        let explicitCategory: String?
+        if let audioCategory {
+            let trimmed = audioCategory.trimmingCharacters(in: .whitespacesAndNewlines)
+            explicitCategory = trimmed.isEmpty ? nil : trimmed
+        } else {
+            explicitCategory = nil
         }
+        return VideoPlayerAudioSessionNeeds(
+            explicitCategory: explicitCategory,
+            needsBackgroundOrPipPlayback: bkmodeEnabled || pipEnabled
+        )
+    }
+
+    private func deactivateAudioSessionIfNeeded() {
+        guard holdsSharedAudioSession else { return }
+        VideoPlayerAudioSessionCoordinator.release(registrationId: audioSessionRegistrationId)
+        holdsSharedAudioSession = false
     }
 
     private func configurePresentationDelegate(for playerVC: UIViewController) {

@@ -8,7 +8,7 @@ import AVKit
  */
 @objc(VideoPlayerPlugin)
 public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
-    private let pluginVersion: String = "8.2.11"
+    private let pluginVersion: String = "8.3.0"
     public let identifier = "VideoPlayerPlugin"
     public let jsName = "VideoPlayer"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -76,6 +76,7 @@ extension VideoPlayerPlugin {
         let exitOnEnd = call.getBool("exitOnEnd") ?? true
         let loopOnEnd = call.getBool("loopOnEnd") ?? false
         let pipEnabled = call.getBool("pipEnabled") ?? true
+        let bkmodeEnabled = call.getBool("bkmodeEnabled") ?? true
         let showControls = call.getBool("showControls") ?? true
         let chromecast = call.getBool("chromecast") ?? true
         let title = call.getString("title")
@@ -84,6 +85,8 @@ extension VideoPlayerPlugin {
         let chromecastUrl = call.getString("chromecastUrl")
         let audioCategory = call.getString("audioCategory")
         let subtitleTracks = Self.parseSubtitleTracks(from: call)
+        let subtitleStyleOptions = Self.parseSubtitleStyleOptions(from: call)
+        let chapters = Self.parseChapters(from: call)
         let drmOptions = Self.parseDrmOptions(from: call)
 
         // Create video player
@@ -94,6 +97,7 @@ extension VideoPlayerPlugin {
             exitOnEnd: exitOnEnd,
             loopOnEnd: loopOnEnd,
             pipEnabled: pipEnabled,
+            bkmodeEnabled: bkmodeEnabled,
             showControls: showControls,
             chromecast: chromecast,
             chromecastUrl: chromecastUrl,
@@ -101,6 +105,8 @@ extension VideoPlayerPlugin {
             smallTitle: smallTitle,
             artwork: artwork,
             subtitleTracks: subtitleTracks,
+            subtitleStyleOptions: subtitleStyleOptions,
+            chapters: chapters,
             fairplayCertificateUrl: drmOptions.fairplayCertificateUrl,
             fairplayContentKeySpcUrl: drmOptions.fairplayContentKeySpcUrl,
             fairplayAssetId: drmOptions.fairplayAssetId,
@@ -135,6 +141,48 @@ extension VideoPlayerPlugin {
                 }
             }
         }
+    }
+
+    private static func parseSubtitleStyleOptions(from call: CAPPluginCall) -> SubtitleStyleOptions? {
+        guard let options = call.getObject("subtitleOptions") else {
+            return nil
+        }
+
+        let fontSize: Double?
+        if let number = options["fontSize"] as? NSNumber {
+            fontSize = number.doubleValue
+        } else {
+            fontSize = nil
+        }
+
+        return SubtitleStyleOptions(
+            foregroundColor: options["foregroundColor"] as? String,
+            backgroundColor: options["backgroundColor"] as? String,
+            fontSize: fontSize
+        )
+    }
+
+    private static func parseChapters(from call: CAPPluginCall) -> [VideoChapter] {
+        guard let entries = call.getArray("chapters") else {
+            return []
+        }
+        var parsed: [VideoChapter] = []
+        for (index, entry) in entries.enumerated() {
+            guard let jsObject = entry as? JSObject else {
+                print("VideoPlayerPlugin: skipping invalid chapter at index \(index)")
+                continue
+            }
+            var dictionary: [String: Any] = [:]
+            for (key, value) in jsObject {
+                dictionary[key] = value
+            }
+            if let chapter = VideoChapter(dictionary: dictionary) {
+                parsed.append(chapter)
+            } else {
+                print("VideoPlayerPlugin: skipping invalid chapter at index \(index)")
+            }
+        }
+        return parsed.sorted { $0.startTime < $1.startTime }
     }
 
     private static func parseSubtitleTracks(from call: CAPPluginCall) -> [VideoSubtitleTrack] {

@@ -3,6 +3,7 @@ package com.capgo.videoplayer;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.app.PictureInPictureParams;
 import android.content.ContentUris;
 import android.content.Context;
@@ -78,11 +79,13 @@ import com.google.android.exoplayer2.ui.CaptionStyleCompat;
 import com.google.android.exoplayer2.ui.DefaultTimeBar;
 import com.google.android.exoplayer2.ui.PlayerControlView;
 import com.google.android.exoplayer2.ui.StyledPlayerView;
+import com.google.android.exoplayer2.ui.SubtitleView;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
 import com.google.android.exoplayer2.util.MimeTypes;
+import com.google.android.exoplayer2.util.Util;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaTrack;
@@ -99,6 +102,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Formatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -115,6 +119,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     public Float videoRate;
     public String playerId;
     public List<VideoSubtitleTrack> subtitleTracks;
+    public List<VideoChapter> chapters = new ArrayList<>();
     public String subTitle;
     public String language;
     public JSObject subTitleOptions;
@@ -170,6 +175,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
     private ProgressBar Pbar;
     private View view;
     private ImageButton closeBtn;
+    private ImageButton chaptersBtn;
     private ImageButton pipBtn;
     private ImageButton resizeBtn;
     private ConstraintLayout constLayout;
@@ -292,6 +298,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         }
 
         closeBtn = view.findViewById(R.id.exo_close);
+        chaptersBtn = view.findViewById(R.id.exo_chapters);
         pipBtn = view.findViewById(R.id.exo_pip);
         styledPlayerView.requestFocus();
         linearLayout.setVisibility(View.INVISIBLE);
@@ -338,6 +345,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                         linearLayout.setVisibility(View.INVISIBLE);
                         Log.v(TAG, "**** in ExoPlayer.STATE_READY firstReadyToPlay " + firstReadyToPlay);
                         updateSubtitleButtonVisibility(player.getCurrentTracks());
+                        updateChaptersButtonVisibility();
 
                         if (firstReadyToPlay) {
                             firstReadyToPlay = false;
@@ -367,6 +375,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                                 if (pipEnabled) {
                                     pipBtn.setVisibility(View.VISIBLE);
                                 }
+                                updateChaptersButtonVisibility();
                             } else {
                                 Log.v(TAG, "**** in ExoPlayer.STATE_READY going to notify playerItemPause ");
                                 NotificationCenter.defaultCenter().postNotification("playerItemPause", info);
@@ -408,6 +417,16 @@ public class FullscreenExoPlayerFragment extends Fragment {
             Toast.makeText(context, "Device is a TV ", Toast.LENGTH_SHORT).show();
         }
 
+        stForeColor = subTitleOptions != null ? subTitleOptions.optString("foregroundColor", "rgba(255,255,255,1)") : "rgba(255,255,255,1)";
+        stBackColor = subTitleOptions != null ? subTitleOptions.optString("backgroundColor", "rgba(0,0,0,1)") : "rgba(0,0,0,1)";
+        stFontSize = 16;
+        if (subTitleOptions != null && subTitleOptions.has("fontSize")) {
+            int fontSizeCandidate = (int) Math.round(subTitleOptions.optDouble("fontSize", 16));
+            if (fontSizeCandidate > 0) {
+                stFontSize = fontSizeCandidate;
+            }
+        }
+
         if (!isInternal) {
             uri = Uri.parse(videoPath);
             subtitleUris = new ArrayList<>();
@@ -427,15 +446,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 subtitleLanguages.add(language != null ? language : "en");
             }
 
-            stForeColor =
-                subTitleOptions != null && subTitleOptions.has("foregroundColor")
-                    ? subTitleOptions.getString("foregroundColor")
-                    : "rgba(255,255,255,1)";
-            stBackColor =
-                subTitleOptions != null && subTitleOptions.has("backgroundColor")
-                    ? subTitleOptions.getString("backgroundColor")
-                    : "rgba(0,0,0,1)";
-            stFontSize = subTitleOptions != null && subTitleOptions.has("fontSize") ? subTitleOptions.getInteger("fontSize") : 16;
             // get video type
             vType = getVideoType(uri);
             Log.v(TAG, "display url: " + uri);
@@ -503,6 +513,14 @@ public class FullscreenExoPlayerFragment extends Fragment {
                                 @Override
                                 public void onClick(View view) {
                                     playerExit();
+                                }
+                            }
+                        );
+                        chaptersBtn.setOnClickListener(
+                            new View.OnClickListener() {
+                                @Override
+                                public void onClick(View view) {
+                                    showChapterPicker();
                                 }
                             }
                         );
@@ -682,9 +700,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         }
 
         isInPictureInPictureMode = activity.isInPictureInPictureMode();
-        if (!subtitleUris.isEmpty()) {
-            setSubtitle(true);
-        }
+        applySubtitleAppearance(true);
         play();
         handler.postDelayed(mRunnable, 100);
     }
@@ -722,9 +738,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (inPictureInPictureMode) {
             linearLayout.setVisibility(View.INVISIBLE);
             styledPlayerView.setUseController(false);
-            if (!subtitleUris.isEmpty()) {
-                setSubtitle(true);
-            }
+            applySubtitleAppearance(true);
             return;
         }
 
@@ -732,9 +746,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (showControls) {
             styledPlayerView.setUseController(true);
         }
-        if (!subtitleUris.isEmpty()) {
-            setSubtitle(false);
-        }
+        applySubtitleAppearance(false);
     }
 
     private void checkPIPPermission() {
@@ -871,7 +883,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
                 }
             }
             if (sturi != null) {
-                setSubtitle(false);
+                applySubtitleAppearance(false);
+                styledPlayerView.setShowSubtitleButton(true);
+            } else {
+                applySubtitleAppearance(false);
             }
         }
     }
@@ -955,7 +970,10 @@ public class FullscreenExoPlayerFragment extends Fragment {
             }
         };
         if (sturi != null) {
-            setSubtitle(false);
+            applySubtitleAppearance(false);
+            styledPlayerView.setShowSubtitleButton(true);
+        } else {
+            applySubtitleAppearance(false);
         }
         //Use Media Session Connector from the EXT library to enable MediaSession Controls in PIP.
         mediaSession = new MediaSessionCompat(context, "capacitorvideoplayer");
@@ -964,6 +982,69 @@ public class FullscreenExoPlayerFragment extends Fragment {
         mediaSession.setActive(true);
 
         NotificationCenter.defaultCenter().postNotification("initializePlayer", info);
+    }
+
+    private boolean isActivePlayerReady() {
+        if (isCastSession) {
+            return castPlayer != null && castPlayer.getPlaybackState() == Player.STATE_READY;
+        }
+        return playerReady;
+    }
+
+    private void updateChaptersButtonVisibility() {
+        if (chaptersBtn == null) {
+            return;
+        }
+        boolean visible = chapters != null && !chapters.isEmpty() && isActivePlayerReady() && showControls;
+        chaptersBtn.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
+    private void showChapterPicker() {
+        if (chapters == null || chapters.isEmpty()) {
+            return;
+        }
+        if (player == null && !(isCastSession && castPlayer != null)) {
+            return;
+        }
+
+        CharSequence[] labels = new CharSequence[chapters.size()];
+        for (int i = 0; i < chapters.size(); i++) {
+            labels[i] = formatChapterLabel(chapters.get(i));
+        }
+
+        new AlertDialog.Builder(requireActivity())
+            .setTitle(R.string.chapters)
+            .setItems(labels, (dialog, which) -> seekToChapter(chapters.get(which)))
+            .show();
+    }
+
+    private String formatChapterLabel(VideoChapter chapter) {
+        long startMs = (long) (chapter.startTimeSeconds * 1000.0);
+        StringBuilder builder = new StringBuilder();
+        Formatter formatter = new Formatter(builder, Locale.getDefault());
+        String timeLabel = Util.getStringForTime(builder, formatter, startMs);
+        formatter.close();
+        if (chapter.title.isEmpty()) {
+            return timeLabel;
+        }
+        return chapter.title + " (" + timeLabel + ")";
+    }
+
+    private void seekToChapter(VideoChapter chapter) {
+        if (chapter == null) {
+            return;
+        }
+        long targetMs = (long) (chapter.startTimeSeconds * 1000.0);
+        if (isCastSession && castPlayer != null) {
+            castPlayer.seekTo(targetMs);
+            castPlayer.setPlayWhenReady(true);
+            return;
+        }
+        if (player == null) {
+            return;
+        }
+        player.seekTo(targetMs);
+        play();
     }
 
     private void updateSubtitleButtonVisibility(Tracks tracks) {
@@ -985,29 +1066,53 @@ public class FullscreenExoPlayerFragment extends Fragment {
         return false;
     }
 
-    private void setSubtitle(boolean transparent) {
-        int foreground;
-        int background;
-        if (!transparent) {
-            foreground = Color.WHITE;
-            background = Color.BLACK;
-            if (stForeColor.length() > 4 && stForeColor.substring(0, 4).equals("rgba")) {
-                foreground = getColorFromRGBA(stForeColor);
-            }
-            if (stBackColor.length() > 4 && stBackColor.substring(0, 4).equals("rgba")) {
-                background = getColorFromRGBA(stBackColor);
-            }
-        } else {
-            foreground = Color.TRANSPARENT;
-            background = Color.TRANSPARENT;
+    private void applySubtitleAppearance(boolean transparentBackground) {
+        SubtitleView subtitleView = styledPlayerView.getSubtitleView();
+        boolean hasSidecar = sturi != null;
+        boolean hasColorOverride = SubtitleOptionOverrides.hasColor(subTitleOptions);
+        boolean hasBackgroundColorOverride = SubtitleOptionOverrides.hasBackgroundColor(subTitleOptions);
+        boolean hasAnyOptions = SubtitleOptionOverrides.hasAny(subTitleOptions);
+        boolean shouldApplyCaptionStyle = hasColorOverride || hasSidecar || (transparentBackground && hasAnyOptions);
+
+        if (hasColorOverride) {
+            subtitleView.setApplyEmbeddedStyles(false);
+            subtitleView.setApplyEmbeddedFontSizes(false);
+        } else if (SubtitleOptionOverrides.hasFontSize(subTitleOptions)) {
+            subtitleView.setApplyEmbeddedStyles(true);
+            subtitleView.setApplyEmbeddedFontSizes(false);
         }
-        styledPlayerView
-            .getSubtitleView()
-            .setStyle(
+
+        if (shouldApplyCaptionStyle) {
+            int foreground = Color.WHITE;
+            if (hasColorOverride) {
+                Integer parsedForeground = SubtitleOptionOverrides.parseRgbaColor(stForeColor);
+                if (parsedForeground != null) {
+                    foreground = parsedForeground;
+                }
+            }
+            int background;
+            if (transparentBackground && !hasBackgroundColorOverride) {
+                background = Color.TRANSPARENT;
+            } else {
+                background = Color.BLACK;
+                if (hasBackgroundColorOverride) {
+                    Integer parsedBackground = SubtitleOptionOverrides.parseRgbaColor(stBackColor);
+                    if (parsedBackground != null) {
+                        background = parsedBackground;
+                    }
+                }
+            }
+            subtitleView.setStyle(
                 new CaptionStyleCompat(foreground, background, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_NONE, Color.WHITE, null)
             );
-        styledPlayerView.getSubtitleView().setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, stFontSize);
-        styledPlayerView.setShowSubtitleButton(true);
+        } else {
+            subtitleView.setUserDefaultStyle();
+        }
+        if (SubtitleOptionOverrides.shouldUseFixedTextSize(subTitleOptions, hasSidecar)) {
+            subtitleView.setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, stFontSize);
+        } else {
+            subtitleView.setUserDefaultTextSize();
+        }
     }
 
     /**
@@ -1124,20 +1229,6 @@ public class FullscreenExoPlayerFragment extends Fragment {
         if (player != null) {
             outState.putInt(PLAYBACK_TIME, (int) player.getCurrentPosition());
         }
-    }
-
-    private int getColorFromRGBA(String rgbaColor) {
-        int ret = 0;
-        String color = rgbaColor.substring(rgbaColor.indexOf("(") + 1, rgbaColor.indexOf(")"));
-        List<String> colors = Arrays.asList(color.split(","));
-        if (colors.size() == 4) {
-            ret =
-                ((Math.round(Float.parseFloat(colors.get(3).trim()) * 255) & 0xff) << 24) |
-                ((Integer.parseInt(colors.get(0).trim()) & 0xff) << 16) |
-                ((Integer.parseInt(colors.get(1).trim()) & 0xff) << 8) |
-                (Integer.parseInt(colors.get(2).trim()) & 0xff);
-        }
-        return ret;
     }
 
     private MediaSource getSubTitles(MediaSource mediaSource, List<Uri> subtitleUris, DataSource.Factory dataSourceFactory) {
@@ -1564,6 +1655,7 @@ public class FullscreenExoPlayerFragment extends Fragment {
                                     };
                                     switch (state) {
                                         case CastPlayer.STATE_READY:
+                                            updateChaptersButtonVisibility();
                                             if (castPlayer.isPlaying()) {
                                                 NotificationCenter.defaultCenter().postNotification("playerItemPlay", info);
                                             } else {
