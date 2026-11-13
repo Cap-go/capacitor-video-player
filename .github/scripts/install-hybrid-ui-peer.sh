@@ -4,7 +4,7 @@ set -euo pipefail
 # Installs optional @capgo/capacitor-hybrid-ui into example-app using a shallow clone
 # of the private Cap-go/hybrid-ui repo (CI only, never committed).
 if [[ -z "${HYBRID_UI_INSTALL_TOKEN:-}" ]]; then
-  echo "HYBRID_UI_INSTALL_TOKEN is required to install the hybrid-ui peer for example builds" >&2
+  echo "A GitHub token is required to install the hybrid-ui peer for example builds" >&2
   exit 1
 fi
 

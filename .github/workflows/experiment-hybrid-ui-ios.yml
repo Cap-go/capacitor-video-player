@@ -16,7 +16,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Install hybrid-ui peer (private)
         env:
-          HYBRID_UI_INSTALL_TOKEN: ${{ secrets.HYBRID_UI_INSTALL_TOKEN }}
+          HYBRID_UI_INSTALL_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: bash ./.github/scripts/install-hybrid-ui-peer.sh
       - name: Capture iOS simulator media and XCUITest
         run: bash ./scripts/experiment-hybrid-ios-capture.sh "$RUNNER_TEMP/hybrid-sim-artifacts"
