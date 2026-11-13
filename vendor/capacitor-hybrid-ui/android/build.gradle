@@ -1,3 +1,10 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
 plugins {
     id 'com.android.library'
     id 'org.jetbrains.kotlin.android' version '2.0.21'
@@ -5,13 +12,6 @@ plugins {
 
 ext {
     junitVersion = project.hasProperty('junitVersion') ? rootProject.ext.junitVersion : '4.13.2'
-}
-
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
 }
 
 android {
