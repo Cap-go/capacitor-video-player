@@ -1,8 +1,10 @@
 Upstream: https://github.com/Cap-go/hybrid-ui/
-Base git tree (main at vendoring time): 94f69b14c17bf8719bd3bac4ce83f4e8dc9fd10f
+Upstream main commit at vendoring time: 94f69b14c17bf8719bd3bac4ce83f4e8dc9fd10f
 
 Local patches in this vendor copy (not on upstream main yet):
 - ios/Sources/HybridUiPlugin/HybridUiSlotContentRegistry.swift
 - ios/Sources/HybridUiPlugin/HybridUiOverlayHost.swift (registry attach, refreshSlot, slot content notification)
+- android/build.gradle (buildscript before plugins for Gradle 9)
+- android/.../HybridUiCompositorSession.kt (viewportRect rename for Kotlin JVM signature)
 
 Consuming via public git or npm is not used here because hybrid-ui is private and these patches are required for video slot attach.

@@ -25,7 +25,7 @@ class HybridUiCompositorSession private constructor() {
     private val slotFrames = mutableMapOf<String, RectF>()
     private val scrollBindings = mutableMapOf<String, ScrollGroupBinding>()
     private val scrollOffsets = mutableMapOf<String, Pair<Float, Float>>()
-    var viewport = RectF(0f, 0f, 390f, 844f)
+    var viewportRect = RectF(0f, 0f, 390f, 844f)
 
     fun reset() {
         layers.clear()
@@ -33,11 +33,11 @@ class HybridUiCompositorSession private constructor() {
         slotFrames.clear()
         scrollBindings.clear()
         scrollOffsets.clear()
-        viewport = RectF(0f, 0f, 390f, 844f)
+        viewportRect = RectF(0f, 0f, 390f, 844f)
     }
 
     fun setViewport(frame: RectF) {
-        viewport = RectF(frame)
+        viewportRect = RectF(frame)
     }
 
     fun registerSlot(slotId: String, zIndex: Int) {
@@ -123,7 +123,7 @@ class HybridUiCompositorSession private constructor() {
         if (layer.kind == "modal-native") return layer.frame
         if (layer.kind == "modal-web") {
             if (layer.frame != null) return layer.frame
-            if (layer.blocksPointerBelow) return RectF(viewport)
+            if (layer.blocksPointerBelow) return RectF(viewportRect)
         }
         return null
     }
