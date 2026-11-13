@@ -114,8 +114,17 @@ export interface capVideoPlayerOptions {
    * Player mode
    *  - "fullscreen"
    *  - "embedded" (Web only)
+   *  - "hybridSlot" (iOS experimental, requires @capgo/capacitor-hybrid-ui)
    */
   mode?: string;
+  /**
+   * Hybrid-ui slot id when `mode` is `hybridSlot`. Must match `HybridUi.registerSlot`.
+   */
+  hybridSlotId?: string;
+  /**
+   * Z-index for the native video slot in the hybrid-ui stack (default 10).
+   */
+  hybridNativeZIndex?: number;
   /**
    * The url of the video to play
    */

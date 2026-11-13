@@ -1,0 +1,58 @@
+{
+  "name": "@capgo/capacitor-hybrid-ui",
+  "version": "0.0.1",
+  "description": "Mixed native and Web UI compositor for Capacitor",
+  "main": "dist/plugin.cjs.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "unpkg": "dist/plugin.js",
+  "files": [
+    "android/src/main/",
+    "android/build.gradle",
+    "dist/",
+    "ios/Sources/",
+    "CapgoCapacitorHybridUi.podspec",
+    "Package.swift"
+  ],
+  "author": "Martin Donadieu <martin@capgo.app>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cap-go/hybrid-ui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Cap-go/hybrid-ui/issues"
+  },
+  "homepage": "https://github.com/Cap-go/hybrid-ui/",
+  "keywords": [
+    "capacitor",
+    "plugin",
+    "native",
+    "webview",
+    "hybrid",
+    "capgo"
+  ],
+  "scripts": {
+    "verify": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc && esbuild src/index.ts --bundle --format=cjs --outfile=dist/plugin.cjs.js --external:@capacitor/core && esbuild src/index.ts --bundle --format=esm --outfile=dist/esm/index.js --external:@capacitor/core",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@capacitor/core": "^6.2.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
+  }
+}
