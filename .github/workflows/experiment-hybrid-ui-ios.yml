@@ -1,0 +1,28 @@
+name: experiment hybrid ui ios capture
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+jobs:
+  experiment_hybrid_ios_capture:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == true
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Capture iOS simulator media
+        run: bash ./scripts/experiment-hybrid-ios-capture.sh "$RUNNER_TEMP/hybrid-sim-artifacts"
+      - name: Upload simulator artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-ios-simulator-capture
+          path: |
+            ${{ runner.temp }}/hybrid-sim-artifacts/sim-ios-unscrolled.png
+            ${{ runner.temp }}/hybrid-sim-artifacts/sim-ios-scrolled.png
+            ${{ runner.temp }}/hybrid-sim-artifacts/sim-ios-scroll.mov
+            ${{ runner.temp }}/hybrid-sim-artifacts/sim-ios-scroll.mp4
+          if-no-files-found: error

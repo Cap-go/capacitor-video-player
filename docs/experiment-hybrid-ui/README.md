@@ -10,7 +10,11 @@ Screenshots and recording for PR `experiment: hybrid-ui video slot`.
 
 ## Files
 
-- `ios-scroll-slot.png` iOS simulator, slot mid-scroll with web title overlay visible.
-- `ios-touch-log.png` iOS event log showing `pointerRouted` web vs native.
-- `android-blocked.png` Android emulator, start shows overlay not available message.
-- `demo-ios.mp4` short iOS screen recording (scroll + tap overlay).
+Simulator (from workflow `experiment hybrid ui ios capture`):
+- `sim-ios-unscrolled.png`, `sim-ios-scrolled.png`, `sim-ios-scroll.mov` (artifacts on the workflow run).
+
+Layout mockups only (Chromium, not native compositing):
+- `layout-mockup-scroll-slot.png`
+- `layout-mockup-touch-log.png`
+- `layout-mockup-android-blocked.png`
+- `layout-mockup-demo.mp4`

@@ -11,16 +11,16 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 await page.goto(`file://${hybridHtml}`);
 
 await mkdir(here, { recursive: true });
-await page.screenshot({ path: path.join(here, 'ios-scroll-slot.png'), fullPage: false });
+await page.screenshot({ path: path.join(here, 'layout-mockup-scroll-slot.png'), fullPage: false });
 await page.evaluate(() => document.getElementById('feed-scroll')?.scrollTo(0, 260));
 await page.waitForTimeout(200);
-await page.screenshot({ path: path.join(here, 'ios-touch-log.png'), fullPage: false });
+await page.screenshot({ path: path.join(here, 'layout-mockup-touch-log.png'), fullPage: false });
 
 const androidPage = await browser.newPage({ viewport: { width: 412, height: 915 } });
 await androidPage.goto(`file://${hybridHtml}`);
 await androidPage.click('#startHybrid');
 await androidPage.waitForTimeout(400);
-await androidPage.screenshot({ path: path.join(here, 'android-blocked.png'), fullPage: false });
+await androidPage.screenshot({ path: path.join(here, 'layout-mockup-android-blocked.png'), fullPage: false });
 
 const videoPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
 await videoPage.goto(`file://${hybridHtml}`);
@@ -43,7 +43,7 @@ for (const name of await videoFile) {
   if (name.endsWith('.webm')) {
     await (await import('node:fs/promises')).rename(
       path.join(here, name),
-      path.join(here, 'demo-ios.webm'),
+      path.join(here, 'layout-mockup-demo.webm'),
     );
     break;
   }

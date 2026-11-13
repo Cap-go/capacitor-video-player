@@ -144,3 +144,12 @@ ui.overlayPlay.addEventListener('click', () => {
 ui.overlayTap.addEventListener('click', () => {
   log('overlay-tap clicked (web)');
 });
+
+const ciParams = new URLSearchParams(globalThis.location.search);
+if (ciParams.get('ci') === '1' && ensureNative()) {
+  void startHybrid();
+  const feedScroll = document.getElementById('feed-scroll');
+  globalThis.setTimeout(() => {
+    feedScroll?.scrollTo({ top: 360, behavior: 'smooth' });
+  }, 3500);
+}

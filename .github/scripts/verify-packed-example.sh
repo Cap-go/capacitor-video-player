@@ -33,6 +33,15 @@ fi
 
 plugin_name="$(bun -e 'console.log(require("./package.json").name)')"
 cp -R example-app/. "$test_app/"
+if [ -d "$repo_root/vendor/capacitor-hybrid-ui" ]; then
+  mkdir -p "$(dirname "$test_app")/vendor"
+  cp -R "$repo_root/vendor/capacitor-hybrid-ui" "$(dirname "$test_app")/vendor/capacitor-hybrid-ui"
+  (
+    cd "$(dirname "$test_app")/vendor/capacitor-hybrid-ui"
+    bun install
+    bun run build
+  )
+fi
 cd "$test_app"
 bun remove "$plugin_name"
 bun add "${packed_packages[0]}"
