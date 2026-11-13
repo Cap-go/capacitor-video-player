@@ -55,6 +55,9 @@ jobs:
         run: bash ./.github/scripts/verify-packed-example.sh android
   build_ios:
     runs-on: macOS-latest
+    concurrency:
+      group: macos-pr-${{ github.event.pull_request.number || format('push-{0}', github.ref) }}
+      cancel-in-progress: false
     # Keep this job capped at 10 minutes; never raise it unless explicitly asked.
     timeout-minutes: 10
     steps:

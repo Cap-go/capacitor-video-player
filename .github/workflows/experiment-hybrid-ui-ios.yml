@@ -5,6 +5,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: macos-pr-${{ github.event.pull_request.number || format('dispatch-{0}', github.run_id) }}
+  cancel-in-progress: false
+
 jobs:
   experiment_hybrid_ios_capture:
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == true
