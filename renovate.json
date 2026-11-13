@@ -12,16 +12,6 @@
         "npm"
       ],
       "enabled": false
-    },
-    {
-      "matchManagers": [
-        "gradle-wrapper"
-      ],
-      "matchFileNames": [
-        "android/**",
-        "example-app/android/**"
-      ],
-      "allowedVersions": "<9.6.0"
     }
   ]
 }
