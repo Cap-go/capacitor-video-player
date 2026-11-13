@@ -1,5 +1,4 @@
 import { Capacitor } from '@capacitor/core';
-import { HybridUi } from '@capgo/capacitor-hybrid-ui';
 import {
   VideoPlayer,
   startHybridSlotGeometrySync,
@@ -10,6 +9,14 @@ const SLOT_ID = 'video-slot-1';
 const SCROLL_GROUP = 'main-feed';
 const PLAYER_ID = 'hybrid-video-player';
 const VIDEO_URL = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+
+let HybridUi;
+try {
+  const mod = await import('@capgo/capacitor-hybrid-ui');
+  HybridUi = mod.HybridUi;
+} catch {
+  HybridUi = null;
+}
 
 const ui = {
   start: document.getElementById('startHybrid'),
@@ -22,13 +29,23 @@ const ui = {
 
 let teardownSync = null;
 let pointerHandle = null;
+let nativeTapHandle = null;
 let hybridReady = false;
 let isPlaying = false;
 
 const log = (line) => {
   const stamp = new Date().toISOString().split('T')[1].replace('Z', '');
   ui.log.textContent = `[${stamp}] ${line}\n${ui.log.textContent}`;
+  const testState = document.getElementById('hybrid-test-state');
+  if (testState) {
+    testState.textContent = line;
+  }
+  if (globalThis.__hybridTestLog) {
+    globalThis.__hybridTestLog.push(line);
+  }
 };
+
+globalThis.__hybridTestLog = globalThis.__hybridTestLog ?? [];
 
 const ensureNative = () => {
   if (!Capacitor.isNativePlatform()) {
@@ -37,6 +54,10 @@ const ensureNative = () => {
   }
   if (Capacitor.getPlatform() === 'android') {
     log('Android: hybrid-ui live overlay not shipped. Open on iOS for this experiment.');
+    return false;
+  }
+  if (!HybridUi) {
+    log('Install @capgo/capacitor-hybrid-ui in the example app to run this page.');
     return false;
   }
   return true;
@@ -64,6 +85,7 @@ const startHybrid = async () => {
       mode: 'hybridSlot',
       playerId: PLAYER_ID,
       hybridSlotId: SLOT_ID,
+      hybridNativeZIndex: 5,
       url: VIDEO_URL,
       showControls: false,
       chromecast: false,
@@ -78,14 +100,14 @@ const startHybrid = async () => {
       scrollGroupId: SCROLL_GROUP,
       slotId: SLOT_ID,
       slotElementId: 'hybrid-video-slot',
-      overlayLayerIds: [
-        { layerId: 'overlay-title', elementId: 'overlay-title', zIndex: 100 },
-        { layerId: 'overlay-play', elementId: 'overlay-play', zIndex: 110 },
-        { layerId: 'overlay-tap', elementId: 'overlay-tap', zIndex: 105 },
-      ],
     });
 
-  pointerHandle = await listenHybridUiPointers(HybridUi, log);
+    pointerHandle = await listenHybridUiPointers(HybridUi, log);
+    nativeTapHandle = await VideoPlayer.addListener('jeepCapVideoPlayerNativeTap', (ev) => {
+      if (ev.fromPlayerId === PLAYER_ID) {
+        log('native video tap (slot)');
+      }
+    });
 
     hybridReady = true;
     ui.toggle.disabled = false;
@@ -105,7 +127,13 @@ const destroyHybrid = async () => {
     await pointerHandle.remove();
     pointerHandle = null;
   }
-  await HybridUi.destroySession();
+  if (nativeTapHandle) {
+    await nativeTapHandle.remove();
+    nativeTapHandle = null;
+  }
+  if (HybridUi) {
+    await HybridUi.destroySession();
+  }
   hybridReady = false;
   isPlaying = false;
   ui.start.disabled = false;

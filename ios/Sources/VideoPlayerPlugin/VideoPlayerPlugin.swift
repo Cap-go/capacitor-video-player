@@ -246,12 +246,14 @@ extension VideoPlayerPlugin {
         }
 
         hybridSlotPlayers[playerId]?.teardown()
+        hybridSlotPlayers.removeValue(forKey: playerId)
         let rate = call.getFloat("rate") ?? 1.0
+        let nativeZIndex = call.getInt("hybridNativeZIndex") ?? 10
         let slotPlayer = HybridSlotVideoPlayer(playerId: playerId, hybridSlotId: hybridSlotId)
         configureHybridCallbacks(for: slotPlayer, playerId: playerId)
 
         DispatchQueue.main.async {
-            slotPlayer.setup(urlString: url, rate: rate) { [weak self] ok in
+            slotPlayer.setup(urlString: url, autoplayRate: rate) { [weak self] ok in
                 guard let self else { return }
                 guard ok else {
                     call.resolve([
@@ -261,27 +263,38 @@ extension VideoPlayerPlugin {
                     ])
                     return
                 }
-                slotPlayer.publishToHybridSlot()
-                self.hybridSlotPlayers[playerId] = slotPlayer
-                self.currentPlayerId = playerId
-                call.resolve([
-                    "result": true,
-                    "method": "initPlayer",
-                    "value": playerId
-                ])
+                slotPlayer.publishToHybridSlot(nativeZIndex: nativeZIndex) { claimed in
+                    guard claimed else {
+                        slotPlayer.teardown()
+                        call.resolve([
+                            "result": false,
+                            "method": "initPlayer",
+                            "message": "hybridSlot requires @capgo/capacitor-hybrid-ui native host"
+                        ])
+                        return
+                    }
+                    self.hybridSlotPlayers[playerId] = slotPlayer
+                    call.resolve([
+                        "result": true,
+                        "method": "initPlayer",
+                        "value": playerId
+                    ])
+                }
             }
         }
     }
 
     private func configureHybridCallbacks(for player: HybridSlotVideoPlayer, playerId: String) {
-        player.setOnPlay { [weak self] in
-            self?.notifyListeners("jeepCapVideoPlayerPlay", data: [
+        player.setOnPlay { [weak self, weak player] in
+            guard let self, let player else { return }
+            self.notifyListeners("jeepCapVideoPlayerPlay", data: [
                 "fromPlayerId": playerId,
                 "currentTime": player.getCurrentTime()
             ])
         }
-        player.setOnPause { [weak self] in
-            self?.notifyListeners("jeepCapVideoPlayerPause", data: [
+        player.setOnPause { [weak self, weak player] in
+            guard let self, let player else { return }
+            self.notifyListeners("jeepCapVideoPlayerPause", data: [
                 "fromPlayerId": playerId,
                 "currentTime": player.getCurrentTime()
             ])
@@ -292,10 +305,16 @@ extension VideoPlayerPlugin {
                 "currentTime": 0
             ])
         }
-        player.setOnEnd { [weak self] in
-            self?.notifyListeners("jeepCapVideoPlayerEnded", data: [
+        player.setOnEnd { [weak self, weak player] in
+            guard let self, let player else { return }
+            self.notifyListeners("jeepCapVideoPlayerEnded", data: [
                 "fromPlayerId": playerId,
                 "currentTime": player.getCurrentTime()
+            ])
+        }
+        player.setOnNativeTap { [weak self] in
+            self?.notifyListeners("jeepCapVideoPlayerNativeTap", data: [
+                "fromPlayerId": playerId
             ])
         }
     }
@@ -350,6 +369,14 @@ extension VideoPlayerPlugin {
             ])
             return
         }
+        if let player = videoPlayers[playerId] {
+            call.resolve([
+                "result": true,
+                "method": "isPlaying",
+                "value": player.isPlaying()
+            ])
+            return
+        }
         if let hybrid = hybridSlotPlayers[playerId] {
             call.resolve([
                 "result": true,
@@ -358,19 +385,10 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-        guard let player = videoPlayers[playerId] else {
-            call.resolve([
-                "result": false,
-                "method": "isPlaying",
-                "message": "Player not found"
-            ])
-            return
-        }
-
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "isPlaying",
-            "value": player.isPlaying()
+            "message": "Player not found"
         ])
     }
 
@@ -383,6 +401,15 @@ extension VideoPlayerPlugin {
             ])
             return
         }
+        if let player = videoPlayers[playerId] {
+            player.play()
+            call.resolve([
+                "result": true,
+                "method": "play",
+                "value": true
+            ])
+            return
+        }
         if let hybrid = hybridSlotPlayers[playerId] {
             hybrid.play()
             call.resolve([
@@ -392,20 +419,10 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-        guard let player = videoPlayers[playerId] else {
-            call.resolve([
-                "result": false,
-                "method": "play",
-                "message": "Player not found"
-            ])
-            return
-        }
-
-        player.play()
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "play",
-            "value": true
+            "message": "Player not found"
         ])
     }
 
@@ -418,6 +435,15 @@ extension VideoPlayerPlugin {
             ])
             return
         }
+        if let player = videoPlayers[playerId] {
+            player.pause()
+            call.resolve([
+                "result": true,
+                "method": "pause",
+                "value": true
+            ])
+            return
+        }
         if let hybrid = hybridSlotPlayers[playerId] {
             hybrid.pause()
             call.resolve([
@@ -427,20 +453,10 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-        guard let player = videoPlayers[playerId] else {
-            call.resolve([
-                "result": false,
-                "method": "pause",
-                "message": "Player not found"
-            ])
-            return
-        }
-
-        player.pause()
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "pause",
-            "value": true
+            "message": "Player not found"
         ])
     }
 
@@ -453,6 +469,15 @@ extension VideoPlayerPlugin {
             ])
             return
         }
+        if let player = videoPlayers[playerId] {
+            let duration = player.getDuration()
+            call.resolve([
+                "result": true,
+                "method": "getDuration",
+                "value": duration
+            ])
+            return
+        }
         if let hybrid = hybridSlotPlayers[playerId] {
             call.resolve([
                 "result": true,
@@ -461,20 +486,10 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-        guard let player = videoPlayers[playerId] else {
-            call.resolve([
-                "result": false,
-                "method": "getDuration",
-                "message": "Player not found"
-            ])
-            return
-        }
-
-        let duration = player.getDuration()
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "getDuration",
-            "value": duration
+            "message": "Player not found"
         ])
     }
 
@@ -487,6 +502,15 @@ extension VideoPlayerPlugin {
             ])
             return
         }
+        if let player = videoPlayers[playerId] {
+            let currentTime = player.getCurrentTime()
+            call.resolve([
+                "result": true,
+                "method": "getCurrentTime",
+                "value": currentTime
+            ])
+            return
+        }
         if let hybrid = hybridSlotPlayers[playerId] {
             call.resolve([
                 "result": true,
@@ -495,20 +519,10 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-        guard let player = videoPlayers[playerId] else {
-            call.resolve([
-                "result": false,
-                "method": "getCurrentTime",
-                "message": "Player not found"
-            ])
-            return
-        }
-
-        let currentTime = player.getCurrentTime()
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "getCurrentTime",
-            "value": currentTime
+            "message": "Player not found"
         ])
     }
 
@@ -529,6 +543,15 @@ extension VideoPlayerPlugin {
             ])
             return
         }
+        if let player = videoPlayers[playerId] {
+            player.setCurrentTime(seektime)
+            call.resolve([
+                "result": true,
+                "method": "setCurrentTime",
+                "value": seektime
+            ])
+            return
+        }
         if let hybrid = hybridSlotPlayers[playerId] {
             hybrid.setCurrentTime(seektime)
             call.resolve([
@@ -538,20 +561,10 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-        guard let player = videoPlayers[playerId] else {
-            call.resolve([
-                "result": false,
-                "method": "setCurrentTime",
-                "message": "Player not found"
-            ])
-            return
-        }
-
-        player.setCurrentTime(seektime)
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "setCurrentTime",
-            "value": seektime
+            "message": "Player not found"
         ])
     }
 
@@ -564,6 +577,15 @@ extension VideoPlayerPlugin {
             ])
             return
         }
+        if let player = videoPlayers[playerId] {
+            let volume = player.getVolume()
+            call.resolve([
+                "result": true,
+                "method": "getVolume",
+                "value": volume
+            ])
+            return
+        }
         if let hybrid = hybridSlotPlayers[playerId] {
             call.resolve([
                 "result": true,
@@ -572,20 +594,10 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-        guard let player = videoPlayers[playerId] else {
-            call.resolve([
-                "result": false,
-                "method": "getVolume",
-                "message": "Player not found"
-            ])
-            return
-        }
-
-        let volume = player.getVolume()
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "getVolume",
-            "value": volume
+            "message": "Player not found"
         ])
     }
 
@@ -608,10 +620,10 @@ extension VideoPlayerPlugin {
             return
         }
 
-        if let hybrid = hybridSlotPlayers[playerId] {
-            hybrid.setVolume(volume)
-        } else if let player = videoPlayers[playerId] {
+        if let player = videoPlayers[playerId] {
             player.setVolume(volume)
+        } else if let hybrid = hybridSlotPlayers[playerId] {
+            hybrid.setVolume(volume)
         } else {
             call.resolve([
                 "result": false,
@@ -636,6 +648,15 @@ extension VideoPlayerPlugin {
             ])
             return
         }
+        if let player = videoPlayers[playerId] {
+            let muted = player.getMuted()
+            call.resolve([
+                "result": true,
+                "method": "getMuted",
+                "value": muted
+            ])
+            return
+        }
         if let hybrid = hybridSlotPlayers[playerId] {
             call.resolve([
                 "result": true,
@@ -644,20 +665,10 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-        guard let player = videoPlayers[playerId] else {
-            call.resolve([
-                "result": false,
-                "method": "getMuted",
-                "message": "Player not found"
-            ])
-            return
-        }
-
-        let muted = player.getMuted()
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "getMuted",
-            "value": muted
+            "message": "Player not found"
         ])
     }
 
@@ -680,10 +691,10 @@ extension VideoPlayerPlugin {
             return
         }
 
-        if let hybrid = hybridSlotPlayers[playerId] {
-            hybrid.setMuted(muted)
-        } else if let player = videoPlayers[playerId] {
+        if let player = videoPlayers[playerId] {
             player.setMuted(muted)
+        } else if let hybrid = hybridSlotPlayers[playerId] {
+            hybrid.setMuted(muted)
         } else {
             call.resolve([
                 "result": false,
@@ -708,6 +719,15 @@ extension VideoPlayerPlugin {
             ])
             return
         }
+        if let player = videoPlayers[playerId] {
+            let rate = player.getRate()
+            call.resolve([
+                "result": true,
+                "method": "getRate",
+                "value": rate
+            ])
+            return
+        }
         if let hybrid = hybridSlotPlayers[playerId] {
             call.resolve([
                 "result": true,
@@ -716,20 +736,10 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-        guard let player = videoPlayers[playerId] else {
-            call.resolve([
-                "result": false,
-                "method": "getRate",
-                "message": "Player not found"
-            ])
-            return
-        }
-
-        let rate = player.getRate()
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "getRate",
-            "value": rate
+            "message": "Player not found"
         ])
     }
 
@@ -752,10 +762,10 @@ extension VideoPlayerPlugin {
             return
         }
 
-        if let hybrid = hybridSlotPlayers[playerId] {
-            hybrid.setRate(rate)
-        } else if let player = videoPlayers[playerId] {
+        if let player = videoPlayers[playerId] {
             player.setRate(rate)
+        } else if let hybrid = hybridSlotPlayers[playerId] {
+            hybrid.setRate(rate)
         } else {
             call.resolve([
                 "result": false,
@@ -775,8 +785,9 @@ extension VideoPlayerPlugin {
         for (_, player) in videoPlayers {
             player.pause()
         }
-        for (_, player) in hybridSlotPlayers {
-            player.pause()
+        for (playerId, player) in hybridSlotPlayers {
+            player.teardown()
+            hybridSlotPlayers.removeValue(forKey: playerId)
         }
 
         call.resolve([

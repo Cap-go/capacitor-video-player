@@ -3,16 +3,22 @@ name: experiment hybrid ui ios capture
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   experiment_hybrid_ios_capture:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == true
     runs-on: macos-latest
     timeout-minutes: 10
     steps:
       - name: Check out
         uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
-      - name: Capture iOS simulator media
+      - name: Install hybrid-ui peer (private)
+        env:
+          HYBRID_UI_INSTALL_TOKEN: ${{ secrets.HYBRID_UI_INSTALL_TOKEN }}
+        run: bash ./.github/scripts/install-hybrid-ui-peer.sh
+      - name: Capture iOS simulator media and XCUITest
         run: bash ./scripts/experiment-hybrid-ios-capture.sh "$RUNNER_TEMP/hybrid-sim-artifacts"
       - name: Upload simulator artifacts
         uses: actions/upload-artifact@v4

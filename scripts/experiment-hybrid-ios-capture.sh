@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Captures iOS Simulator evidence for hybrid-ui + hybridSlot (CI or workflow_dispatch).
+# Captures iOS Simulator evidence for hybrid-ui + hybridSlot (workflow_dispatch only).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUT_DIR="$ROOT_DIR/docs/experiment-hybrid-ui"
-ARTIFACT_DIR="${1:-$OUT_DIR}"
+ARTIFACT_DIR="${1:-$ROOT_DIR/docs/experiment-hybrid-ui}"
 TMP_ROOT="${RUNNER_TEMP:-$(mktemp -d)}"
 DERIVED="$TMP_ROOT/hybrid-derived"
 SIM_VIDEO_PID=""
+BUNDLE_ID="app.capgo.video.player"
+MIN_MP4_BYTES=50000
 
 cleanup() {
   if [[ -n "$SIM_VIDEO_PID" ]] && kill -0 "$SIM_VIDEO_PID" 2>/dev/null; then
@@ -17,14 +18,54 @@ cleanup() {
 }
 trap cleanup EXIT
 
+assert_app_running() {
+  local sim_id="$1"
+  if ! xcrun simctl listapps "$sim_id" 2>/dev/null | grep -Fq "$BUNDLE_ID"; then
+    echo "App $BUNDLE_ID is not installed on simulator $sim_id" >&2
+    return 1
+  fi
+  local pid
+  pid="$(xcrun simctl spawn "$sim_id" pgrep -lf "$BUNDLE_ID" 2>/dev/null | head -1 || true)"
+  if [[ -z "$pid" ]]; then
+    echo "App $BUNDLE_ID is not running (likely crashed to home screen)" >&2
+    dump_recent_crashes "$sim_id"
+    return 1
+  fi
+}
+
+dump_recent_crashes() {
+  local sim_id="$1"
+  local home
+  home="$(xcrun simctl get_app_container "$sim_id" "$BUNDLE_ID" 2>/dev/null || true)"
+  echo "--- recent DiagnosticReports (App*) ---"
+  find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -name 'App*.crash' -mmin -15 -print -exec tail -n 40 {} \; 2>/dev/null || true
+  echo "--- simulator log (last 2m, process App) ---"
+  xcrun simctl spawn "$sim_id" log show --style compact --last 2m --predicate 'process CONTAINS "App"' 2>/dev/null | tail -n 80 || true
+}
+
+assert_mp4() {
+  local path="$1"
+  if [[ ! -f "$path" ]]; then
+    echo "Missing mp4 at $path" >&2
+    return 1
+  fi
+  local size
+  size="$(wc -c <"$path" | tr -d ' ')"
+  if [[ "$size" -lt "$MIN_MP4_BYTES" ]]; then
+    echo "mp4 too small ($size bytes, need at least $MIN_MP4_BYTES): $path" >&2
+    return 1
+  fi
+}
+
 cd "$ROOT_DIR"
 bun install
 bun run build
-(
-  cd "$ROOT_DIR/vendor/capacitor-hybrid-ui"
-  bun install
-  bun run build
-)
+
+if [[ ! -d "$ROOT_DIR/example-app/node_modules/@capgo/capacitor-hybrid-ui" ]]; then
+  echo "example-app is missing @capgo/capacitor-hybrid-ui; run install-hybrid-ui-peer.sh first" >&2
+  exit 1
+fi
+
 cd "$ROOT_DIR/example-app"
 bun install
 bun run build
@@ -66,7 +107,16 @@ xcodebuild \
   -destination "id=$SIMULATOR_ID" \
   -derivedDataPath "$DERIVED" \
   CODE_SIGNING_ALLOWED=NO \
-  build
+  build-for-testing
+
+xcodebuild \
+  -project ios/App/App.xcodeproj \
+  -scheme App \
+  -destination "id=$SIMULATOR_ID" \
+  -derivedDataPath "$DERIVED" \
+  CODE_SIGNING_ALLOWED=NO \
+  -only-testing:HybridSlotUITests \
+  test-without-building
 
 APP_PATH="$DERIVED/Build/Products/Debug-iphonesimulator/App.app"
 if [[ ! -d "$APP_PATH" ]]; then
@@ -75,17 +125,19 @@ if [[ ! -d "$APP_PATH" ]]; then
 fi
 
 xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
-xcrun simctl terminate "$SIMULATOR_ID" app.capgo.video.player 2>/dev/null || true
+xcrun simctl terminate "$SIMULATOR_ID" "$BUNDLE_ID" 2>/dev/null || true
 
 mkdir -p "$ARTIFACT_DIR"
 VIDEO_PATH="$ARTIFACT_DIR/sim-ios-scroll.mov"
 xcrun simctl io "$SIMULATOR_ID" recordVideo "$VIDEO_PATH" &
 SIM_VIDEO_PID=$!
 
-xcrun simctl launch "$SIMULATOR_ID" app.capgo.video.player
-sleep 5
+xcrun simctl launch "$SIMULATOR_ID" "$BUNDLE_ID"
+sleep 4
+assert_app_running "$SIMULATOR_ID"
 xcrun simctl io "$SIMULATOR_ID" screenshot "$ARTIFACT_DIR/sim-ios-unscrolled.png"
-sleep 5
+sleep 4
+assert_app_running "$SIMULATOR_ID"
 xcrun simctl io "$SIMULATOR_ID" screenshot "$ARTIFACT_DIR/sim-ios-scrolled.png"
 
 if [[ -n "$SIM_VIDEO_PID" ]]; then
@@ -94,8 +146,10 @@ if [[ -n "$SIM_VIDEO_PID" ]]; then
   SIM_VIDEO_PID=""
 fi
 
+MP4_PATH="$ARTIFACT_DIR/sim-ios-scroll.mp4"
 if command -v ffmpeg >/dev/null 2>&1 && [[ -f "$VIDEO_PATH" ]]; then
-  ffmpeg -y -i "$VIDEO_PATH" -c:v libx264 -pix_fmt yuv420p "$ARTIFACT_DIR/sim-ios-scroll.mp4" >/dev/null 2>&1 || true
+  ffmpeg -y -i "$VIDEO_PATH" -c:v libx264 -pix_fmt yuv420p "$MP4_PATH" 2>/dev/null || true
 fi
+assert_mp4 "$MP4_PATH"
 
 echo "Wrote simulator captures under $ARTIFACT_DIR"

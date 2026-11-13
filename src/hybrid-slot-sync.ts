@@ -17,13 +17,6 @@ export type HybridUiGeometryClient = {
     contentHeight: number;
     viewport: { x: number; y: number; width: number; height: number };
   }): Promise<void>;
-  presentLayer(options: {
-    layerId: string;
-    kind: string;
-    zIndex: number;
-    blocksPointerBelow?: boolean;
-    frame?: { x: number; y: number; width: number; height: number };
-  }): Promise<void>;
   addListener(
     eventName: 'pointerRouted',
     listenerFunc: (event: { target: string; slotId?: string; x: number; y: number; phase: string }) => void,
@@ -35,16 +28,11 @@ export type HybridSlotGeometrySyncOptions = {
   scrollGroupId: string;
   slotId: string;
   slotElementId: string;
-  overlayLayerIds?: {
-    layerId: string;
-    elementId: string;
-    zIndex: number;
-    blocksPointerBelow?: boolean;
-  }[];
 };
 
 /**
- * Keeps hybrid-ui slot frames aligned with DOM layout inside a scroll container.
+ * Keeps hybrid-ui slot frames aligned with DOM layout. Frames are content-relative inside the scroll
+ * container so native compositors must not subtract scroll offset again.
  * Requires @capgo/capacitor-hybrid-ui in the native app.
  */
 export async function startHybridSlotGeometrySync(
@@ -58,14 +46,22 @@ export async function startHybridSlotGeometrySync(
   }
 
   let revision = 0;
-  const measureFrame = (el: HTMLElement) => {
+  let scrollRaf = 0;
+
+  const measureContentFrame = (el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
+    const scrollRect = scrollEl.getBoundingClientRect();
     return {
-      x: rect.left,
-      y: rect.top,
+      x: rect.left - scrollRect.left + scrollEl.scrollLeft,
+      y: rect.top - scrollRect.top + scrollEl.scrollTop,
       width: rect.width,
       height: rect.height,
     };
+  };
+
+  const measureViewportFrame = (el: HTMLElement) => {
+    const rect = el.getBoundingClientRect();
+    return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
   };
 
   const pushGeometry = async () => {
@@ -75,36 +71,29 @@ export async function startHybridSlotGeometrySync(
         {
           slotId: options.slotId,
           revision,
-          frame: measureFrame(slotEl),
+          frame: measureContentFrame(slotEl),
         },
       ],
     });
-
-    if (options.overlayLayerIds?.length) {
-      for (const overlay of options.overlayLayerIds) {
-        const overlayEl = document.getElementById(overlay.elementId);
-        if (!overlayEl) continue;
-        await HybridUi.presentLayer({
-          layerId: overlay.layerId,
-          kind: 'modal-web',
-          zIndex: overlay.zIndex,
-          blocksPointerBelow: overlay.blocksPointerBelow ?? false,
-          frame: measureFrame(overlayEl),
-        });
-      }
-    }
   };
 
-  const onScroll = async () => {
+  const reportScrollOnce = async () => {
     await HybridUi.reportScroll({
       scrollGroupId: options.scrollGroupId,
       contentOffsetX: scrollEl.scrollLeft,
       contentOffsetY: scrollEl.scrollTop,
       contentWidth: scrollEl.scrollWidth,
       contentHeight: scrollEl.scrollHeight,
-      viewport: measureFrame(scrollEl),
+      viewport: measureViewportFrame(scrollEl),
     });
-    await pushGeometry();
+  };
+
+  const scheduleScrollReport = () => {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = 0;
+      void reportScrollOnce();
+    });
   };
 
   const resizeObserver = new ResizeObserver(() => {
@@ -112,25 +101,26 @@ export async function startHybridSlotGeometrySync(
   });
   resizeObserver.observe(slotEl);
   resizeObserver.observe(scrollEl);
-  for (const overlay of options.overlayLayerIds ?? []) {
-    const el = document.getElementById(overlay.elementId);
-    if (el) resizeObserver.observe(el);
-  }
 
   const scrollHandler = () => {
-    void onScroll();
+    scheduleScrollReport();
   };
   const resizeHandler = () => {
-    void onScroll();
+    void pushGeometry();
+    scheduleScrollReport();
   };
 
   scrollEl.addEventListener('scroll', scrollHandler, { passive: true });
   window.addEventListener('resize', resizeHandler);
 
   await pushGeometry();
-  await onScroll();
+  await reportScrollOnce();
 
   return () => {
+    if (scrollRaf) {
+      cancelAnimationFrame(scrollRaf);
+      scrollRaf = 0;
+    }
     resizeObserver.disconnect();
     scrollEl.removeEventListener('scroll', scrollHandler);
     window.removeEventListener('resize', resizeHandler);
