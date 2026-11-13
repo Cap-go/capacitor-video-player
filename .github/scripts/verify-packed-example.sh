@@ -36,6 +36,23 @@ cp -R example-app/. "$test_app/"
 cd "$test_app"
 bun remove "$plugin_name"
 bun add "${packed_packages[0]}"
+
+# hybrid-ui is an optional peer (private); packed verify uses the main example only.
+bun remove @capgo/capacitor-hybrid-ui 2>/dev/null || true
+rm -f src/hybrid.html src/js/hybrid-feed.js
+cat > vite.config.ts <<'EOF'
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  root: './src',
+  build: {
+    outDir: '../dist',
+    minify: false,
+    emptyOutDir: true,
+  },
+});
+EOF
+
 bun run build
 
 case "$platform" in

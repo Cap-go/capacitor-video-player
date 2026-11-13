@@ -46,10 +46,11 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
       return Promise.resolve({
         result: false,
         method: 'initPlayer',
-        message: 'Must provide a Mode (fullscreen/embedded)',
+        message: 'Must provide a Mode (fullscreen/embedded/hybridSlot)',
       });
     }
-    if (this.mode === 'fullscreen' || this.mode === 'embedded') {
+    const webPlaybackMode = this.mode === 'hybridSlot' ? 'embedded' : this.mode;
+    if (webPlaybackMode === 'fullscreen' || webPlaybackMode === 'embedded') {
       const url: string = options.url ? options.url : '';
       if (url == null || url.length === 0) {
         return Promise.resolve({
@@ -93,13 +94,13 @@ export class VideoPlayerWeb extends WebPlugin implements VideoPlayerPlugin {
         });
       }
       let playerSize: IPlayerSize = null as any;
-      if (this.mode === 'embedded') {
+      if (webPlaybackMode === 'embedded') {
         playerSize = this.checkSize(options);
       }
       const result = await this._initializeVideoPlayer(
         url,
         playerId,
-        this.mode,
+        webPlaybackMode,
         rate,
         exitOnEnd,
         loopOnEnd,

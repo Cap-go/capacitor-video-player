@@ -12,7 +12,6 @@
     "dist/",
     "ios/Sources",
     "ios/Tests",
-    "scripts/",
     "Package.swift",
     "CapgoCapacitorVideoPlayer.podspec"
   ],
@@ -81,7 +80,13 @@
   },
   "peerDependencies": {
     "@capacitor/core": ">=8.0.0",
+    "@capgo/capacitor-hybrid-ui": ">=0.1.0",
     "hls.js": "^1.4.0"
+  },
+  "peerDependenciesMeta": {
+    "@capgo/capacitor-hybrid-ui": {
+      "optional": true
+    }
   },
   "prettier": "@ionic/prettier-config",
   "swiftlint": "@ionic/swiftlint-config",

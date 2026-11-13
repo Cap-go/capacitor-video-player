@@ -7,4 +7,5 @@ const VideoPlayer = registerPlugin<VideoPlayerPlugin>('VideoPlayer', {
 });
 
 export * from './definitions';
+export * from './hybrid-slot-sync';
 export { VideoPlayer };
