@@ -45,6 +45,25 @@ fi
 cd "$test_app"
 bun remove "$plugin_name"
 bun add "${packed_packages[0]}"
+
+if [ "$platform" = "android" ]; then
+  # hybrid-ui has no live Android overlay yet; keep packed Android verify on the main example only.
+  bun remove @capgo/capacitor-hybrid-ui 2>/dev/null || true
+  rm -f src/hybrid.html src/js/hybrid-feed.js
+  cat > vite.config.ts <<'EOF'
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  root: './src',
+  build: {
+    outDir: '../dist',
+    minify: false,
+    emptyOutDir: true,
+  },
+});
+EOF
+fi
+
 bun run build
 
 case "$platform" in
