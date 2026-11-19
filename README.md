@@ -52,6 +52,10 @@ The most complete doc is available here: https://capgo.app/docs/plugins/video-pl
 
 > **Note:** The major version of this plugin follows the major version of Capacitor. Use the version that matches your Capacitor installation (e.g., plugin v8 for Capacitor 8). Only the latest major version is actively maintained.
 
+### iOS minimum version
+
+This plugin targets **iOS 16.0** or later in its CocoaPods spec and Swift Package Manager manifest. Google Cast SDK **4.8.6** (bundled for iOS Chromecast) also requires iOS 16. Set `IPHONEOS_DEPLOYMENT_TARGET` to at least **16.0** in your Xcode project before `pod install` or SPM resolution. Capacitor 8 app templates may still default to iOS 15; raise the deployment target when you update to a release that ships Cast SDK 4.8.6.
+
 ## Install
 
 You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command:
@@ -75,7 +79,7 @@ bunx cap sync
 
 ## iOS Chromecast setup
 
-iOS Chromecast uses the Google Cast SDK default media receiver. When `chromecast` is enabled, the plugin adds a Cast button over the fullscreen iOS player, loads the current media on the selected receiver, and keeps plugin play/pause/seek/volume calls pointed at the active Cast session.
+iOS Chromecast requires **iOS 16.0+** and uses the Google Cast SDK default media receiver. When `chromecast` is enabled, the plugin adds a Cast button over the fullscreen iOS player, loads the current media on the selected receiver, and keeps plugin play/pause/seek/volume calls pointed at the active Cast session.
 
 For Cast discovery on iOS, add local network keys to your app `Info.plist`.
 
