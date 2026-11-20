@@ -141,7 +141,7 @@ public class VideoPlayerPlugin extends Plugin {
         Log.d(TAG, "**** isTV " + isTV + " ****");
         String _mode = call.getString("mode");
         if (_mode == null) {
-            ret.put("message", "Must provide a Mode (fullscreen/embedded)");
+            ret.put("message", "Must provide a Mode (fullscreen/embedded/hybridSlot)");
             call.resolve(ret);
             return;
         }
@@ -277,6 +277,10 @@ public class VideoPlayerPlugin extends Plugin {
             }
         } else if ("embedded".equals(mode)) {
             ret.put("message", "Embedded Mode not implemented");
+            call.resolve(ret);
+            return;
+        } else if ("hybridSlot".equals(mode)) {
+            ret.put("message", "hybridSlot is not available on Android yet (hybrid-ui has no live overlay or SurfaceView dispatch)");
             call.resolve(ret);
             return;
         }
