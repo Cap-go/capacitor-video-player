@@ -35,6 +35,7 @@ public class VideoPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     private var videoPlayers: [String: FullscreenVideoPlayer] = [:]
+    private var hybridSlotPlayers: [String: HybridSlotVideoPlayer] = [:]
     private var currentPlayerId: String?
 
     @objc func getPluginVersion(_ call: CAPPluginCall) {
@@ -63,11 +64,15 @@ extension VideoPlayerPlugin {
         }
 
         let mode = call.getString("mode") ?? "fullscreen"
+        if mode == "hybridSlot" {
+            initHybridSlotPlayer(call, playerId: playerId)
+            return
+        }
         guard mode == "fullscreen" else {
             call.resolve([
                 "result": false,
                 "method": "initPlayer",
-                "message": "Only fullscreen mode is supported on iOS"
+                "message": "Only fullscreen or hybridSlot mode is supported on iOS"
             ])
             return
         }
@@ -222,6 +227,98 @@ extension VideoPlayerPlugin {
         )
     }
 
+    private func initHybridSlotPlayer(_ call: CAPPluginCall, playerId: String) {
+        guard let hybridSlotId = call.getString("hybridSlotId") else {
+            call.resolve([
+                "result": false,
+                "method": "initPlayer",
+                "message": "hybridSlot mode requires hybridSlotId"
+            ])
+            return
+        }
+        guard let url = call.getString("url") else {
+            call.resolve([
+                "result": false,
+                "method": "initPlayer",
+                "message": "Must provide an url"
+            ])
+            return
+        }
+
+        hybridSlotPlayers[playerId]?.teardown()
+        hybridSlotPlayers.removeValue(forKey: playerId)
+        let rate = call.getFloat("rate") ?? 1.0
+        let nativeZIndex = call.getInt("hybridNativeZIndex") ?? 10
+        let slotPlayer = HybridSlotVideoPlayer(playerId: playerId, hybridSlotId: hybridSlotId)
+        configureHybridCallbacks(for: slotPlayer, playerId: playerId)
+
+        DispatchQueue.main.async {
+            slotPlayer.setup(urlString: url, autoplayRate: rate) { [weak self] ok in
+                guard let self else { return }
+                guard ok else {
+                    call.resolve([
+                        "result": false,
+                        "method": "initPlayer",
+                        "message": "Unable to open video url"
+                    ])
+                    return
+                }
+                slotPlayer.publishToHybridSlot(nativeZIndex: nativeZIndex) { claimed in
+                    guard claimed else {
+                        slotPlayer.teardown()
+                        call.resolve([
+                            "result": false,
+                            "method": "initPlayer",
+                            "message": "hybridSlot requires @capgo/capacitor-hybrid-ui native host"
+                        ])
+                        return
+                    }
+                    self.hybridSlotPlayers[playerId] = slotPlayer
+                    call.resolve([
+                        "result": true,
+                        "method": "initPlayer",
+                        "value": playerId
+                    ])
+                }
+            }
+        }
+    }
+
+    private func configureHybridCallbacks(for player: HybridSlotVideoPlayer, playerId: String) {
+        player.setOnPlay { [weak self, weak player] in
+            guard let self, let player else { return }
+            self.notifyListeners("jeepCapVideoPlayerPlay", data: [
+                "fromPlayerId": playerId,
+                "currentTime": player.getCurrentTime()
+            ])
+        }
+        player.setOnPause { [weak self, weak player] in
+            guard let self, let player else { return }
+            self.notifyListeners("jeepCapVideoPlayerPause", data: [
+                "fromPlayerId": playerId,
+                "currentTime": player.getCurrentTime()
+            ])
+        }
+        player.setOnReady { [weak self] in
+            self?.notifyListeners("jeepCapVideoPlayerReady", data: [
+                "fromPlayerId": playerId,
+                "currentTime": 0
+            ])
+        }
+        player.setOnEnd { [weak self, weak player] in
+            guard let self, let player else { return }
+            self.notifyListeners("jeepCapVideoPlayerEnded", data: [
+                "fromPlayerId": playerId,
+                "currentTime": player.getCurrentTime()
+            ])
+        }
+        player.setOnNativeTap { [weak self] in
+            self?.notifyListeners("jeepCapVideoPlayerNativeTap", data: [
+                "fromPlayerId": playerId
+            ])
+        }
+    }
+
     private func configureCallbacks(for player: FullscreenVideoPlayer, playerId: String) {
         player.setOnPlay { [weak self] in
             self?.notifyListeners("jeepCapVideoPlayerPlay", data: [
@@ -264,8 +361,7 @@ extension VideoPlayerPlugin {
     }
 
     @objc func isPlaying(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "isPlaying",
@@ -273,17 +369,31 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-
+        if let player = videoPlayers[playerId] {
+            call.resolve([
+                "result": true,
+                "method": "isPlaying",
+                "value": player.isPlaying()
+            ])
+            return
+        }
+        if let hybrid = hybridSlotPlayers[playerId] {
+            call.resolve([
+                "result": true,
+                "method": "isPlaying",
+                "value": hybrid.isPlaying()
+            ])
+            return
+        }
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "isPlaying",
-            "value": player.isPlaying()
+            "message": "Player not found"
         ])
     }
 
     @objc func play(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "play",
@@ -291,18 +401,33 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-
-        player.play()
+        if let player = videoPlayers[playerId] {
+            player.play()
+            call.resolve([
+                "result": true,
+                "method": "play",
+                "value": true
+            ])
+            return
+        }
+        if let hybrid = hybridSlotPlayers[playerId] {
+            hybrid.play()
+            call.resolve([
+                "result": true,
+                "method": "play",
+                "value": true
+            ])
+            return
+        }
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "play",
-            "value": true
+            "message": "Player not found"
         ])
     }
 
     @objc func pause(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "pause",
@@ -310,18 +435,33 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-
-        player.pause()
+        if let player = videoPlayers[playerId] {
+            player.pause()
+            call.resolve([
+                "result": true,
+                "method": "pause",
+                "value": true
+            ])
+            return
+        }
+        if let hybrid = hybridSlotPlayers[playerId] {
+            hybrid.pause()
+            call.resolve([
+                "result": true,
+                "method": "pause",
+                "value": true
+            ])
+            return
+        }
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "pause",
-            "value": true
+            "message": "Player not found"
         ])
     }
 
     @objc func getDuration(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "getDuration",
@@ -329,18 +469,32 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-
-        let duration = player.getDuration()
+        if let player = videoPlayers[playerId] {
+            let duration = player.getDuration()
+            call.resolve([
+                "result": true,
+                "method": "getDuration",
+                "value": duration
+            ])
+            return
+        }
+        if let hybrid = hybridSlotPlayers[playerId] {
+            call.resolve([
+                "result": true,
+                "method": "getDuration",
+                "value": hybrid.getDuration()
+            ])
+            return
+        }
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "getDuration",
-            "value": duration
+            "message": "Player not found"
         ])
     }
 
     @objc func getCurrentTime(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "getCurrentTime",
@@ -348,18 +502,32 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-
-        let currentTime = player.getCurrentTime()
+        if let player = videoPlayers[playerId] {
+            let currentTime = player.getCurrentTime()
+            call.resolve([
+                "result": true,
+                "method": "getCurrentTime",
+                "value": currentTime
+            ])
+            return
+        }
+        if let hybrid = hybridSlotPlayers[playerId] {
+            call.resolve([
+                "result": true,
+                "method": "getCurrentTime",
+                "value": hybrid.getCurrentTime()
+            ])
+            return
+        }
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "getCurrentTime",
-            "value": currentTime
+            "message": "Player not found"
         ])
     }
 
     @objc func setCurrentTime(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "setCurrentTime",
@@ -367,7 +535,6 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-
         guard let seektime = call.getDouble("seektime") else {
             call.resolve([
                 "result": false,
@@ -376,18 +543,33 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-
-        player.setCurrentTime(seektime)
+        if let player = videoPlayers[playerId] {
+            player.setCurrentTime(seektime)
+            call.resolve([
+                "result": true,
+                "method": "setCurrentTime",
+                "value": seektime
+            ])
+            return
+        }
+        if let hybrid = hybridSlotPlayers[playerId] {
+            hybrid.setCurrentTime(seektime)
+            call.resolve([
+                "result": true,
+                "method": "setCurrentTime",
+                "value": seektime
+            ])
+            return
+        }
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "setCurrentTime",
-            "value": seektime
+            "message": "Player not found"
         ])
     }
 
     @objc func getVolume(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "getVolume",
@@ -395,18 +577,32 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-
-        let volume = player.getVolume()
+        if let player = videoPlayers[playerId] {
+            let volume = player.getVolume()
+            call.resolve([
+                "result": true,
+                "method": "getVolume",
+                "value": volume
+            ])
+            return
+        }
+        if let hybrid = hybridSlotPlayers[playerId] {
+            call.resolve([
+                "result": true,
+                "method": "getVolume",
+                "value": hybrid.getVolume()
+            ])
+            return
+        }
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "getVolume",
-            "value": volume
+            "message": "Player not found"
         ])
     }
 
     @objc func setVolume(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "setVolume",
@@ -424,7 +620,18 @@ extension VideoPlayerPlugin {
             return
         }
 
-        player.setVolume(volume)
+        if let player = videoPlayers[playerId] {
+            player.setVolume(volume)
+        } else if let hybrid = hybridSlotPlayers[playerId] {
+            hybrid.setVolume(volume)
+        } else {
+            call.resolve([
+                "result": false,
+                "method": "setVolume",
+                "message": "Player not found"
+            ])
+            return
+        }
         call.resolve([
             "result": true,
             "method": "setVolume",
@@ -433,8 +640,7 @@ extension VideoPlayerPlugin {
     }
 
     @objc func getMuted(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "getMuted",
@@ -442,18 +648,32 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-
-        let muted = player.getMuted()
+        if let player = videoPlayers[playerId] {
+            let muted = player.getMuted()
+            call.resolve([
+                "result": true,
+                "method": "getMuted",
+                "value": muted
+            ])
+            return
+        }
+        if let hybrid = hybridSlotPlayers[playerId] {
+            call.resolve([
+                "result": true,
+                "method": "getMuted",
+                "value": hybrid.getMuted()
+            ])
+            return
+        }
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "getMuted",
-            "value": muted
+            "message": "Player not found"
         ])
     }
 
     @objc func setMuted(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "setMuted",
@@ -471,7 +691,18 @@ extension VideoPlayerPlugin {
             return
         }
 
-        player.setMuted(muted)
+        if let player = videoPlayers[playerId] {
+            player.setMuted(muted)
+        } else if let hybrid = hybridSlotPlayers[playerId] {
+            hybrid.setMuted(muted)
+        } else {
+            call.resolve([
+                "result": false,
+                "method": "setMuted",
+                "message": "Player not found"
+            ])
+            return
+        }
         call.resolve([
             "result": true,
             "method": "setMuted",
@@ -480,8 +711,7 @@ extension VideoPlayerPlugin {
     }
 
     @objc func getRate(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "getRate",
@@ -489,18 +719,32 @@ extension VideoPlayerPlugin {
             ])
             return
         }
-
-        let rate = player.getRate()
+        if let player = videoPlayers[playerId] {
+            let rate = player.getRate()
+            call.resolve([
+                "result": true,
+                "method": "getRate",
+                "value": rate
+            ])
+            return
+        }
+        if let hybrid = hybridSlotPlayers[playerId] {
+            call.resolve([
+                "result": true,
+                "method": "getRate",
+                "value": hybrid.getRate()
+            ])
+            return
+        }
         call.resolve([
-            "result": true,
+            "result": false,
             "method": "getRate",
-            "value": rate
+            "message": "Player not found"
         ])
     }
 
     @objc func setRate(_ call: CAPPluginCall) {
-        guard let playerId = call.getString("playerId"),
-              let player = videoPlayers[playerId] else {
+        guard let playerId = call.getString("playerId") else {
             call.resolve([
                 "result": false,
                 "method": "setRate",
@@ -518,7 +762,18 @@ extension VideoPlayerPlugin {
             return
         }
 
-        player.setRate(rate)
+        if let player = videoPlayers[playerId] {
+            player.setRate(rate)
+        } else if let hybrid = hybridSlotPlayers[playerId] {
+            hybrid.setRate(rate)
+        } else {
+            call.resolve([
+                "result": false,
+                "method": "setRate",
+                "message": "Player not found"
+            ])
+            return
+        }
         call.resolve([
             "result": true,
             "method": "setRate",
@@ -529,6 +784,10 @@ extension VideoPlayerPlugin {
     @objc func stopAllPlayers(_ call: CAPPluginCall) {
         for (_, player) in videoPlayers {
             player.pause()
+        }
+        for (playerId, player) in hybridSlotPlayers {
+            player.teardown()
+            hybridSlotPlayers.removeValue(forKey: playerId)
         }
 
         call.resolve([
