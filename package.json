@@ -12,7 +12,6 @@
     "dist/",
     "ios/Sources",
     "ios/Tests",
-    "scripts/",
     "Package.swift",
     "CapgoCapacitorVideoPlayer.podspec"
   ],
